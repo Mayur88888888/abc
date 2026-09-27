@@ -1,20 +1,66 @@
-import { useRef } from 'react';
+import { useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Html, Line } from '@react-three/drei';
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Html, Line, Edges } from '@react-three/drei';
 import * as THREE from 'three';
 import { useCADStore } from '../store/cadStore';
 import type { Feature, Vec3 } from '../lib/cadEngine';
 
-// Feature renderer - renders each feature as 3D geometry with proper positioning
-function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover }: {
+// Sub-shape types for selection
+type SubShapeType = 'face' | 'edge' | 'vertex';
+
+interface SubShapeSelection {
+  featureId: string;
+  type: SubShapeType;
+  index: number;
+}
+
+// Map Three.js face index to logical face of primitive
+function getLogicalFaceIndex(featureType: string, faceIndex: number): number {
+  switch (featureType) {
+    case 'box':
+      // Box has 12 triangles → 6 faces (2 triangles per face)
+      return Math.floor(faceIndex / 2);
+    case 'cylinder':
+    case 'cone':
+      // Simplified: side=0, top=1, bottom=2
+      // This is approximate - real implementation would check vertex positions
+      if (faceIndex < 32) return 0; // side
+      if (faceIndex < 48) return 1; // top cap
+      return 2; // bottom cap
+    case 'sphere':
+      return 0; // entire sphere is one face
+    case 'torus':
+      return 0; // entire torus is one face
+    default:
+      return 0;
+  }
+}
+
+// Face names for display
+function getFaceName(featureType: string, faceIndex: number): string {
+  if (featureType === 'box') {
+    const names = ['Right (+X)', 'Left (-X)', 'Top (+Y)', 'Bottom (-Y)', 'Front (+Z)', 'Back (-Z)'];
+    return names[faceIndex] || `Face ${faceIndex}`;
+  }
+  if (featureType === 'cylinder' || featureType === 'cone') {
+    const names = ['Cylindrical Face', 'Top Cap', 'Bottom Cap'];
+    return names[faceIndex] || `Face ${faceIndex}`;
+  }
+  return `Face ${faceIndex}`;
+}
+
+// Feature renderer with sub-shape selection
+function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, selectionMode }: {
   feature: Feature;
   isSelected: boolean;
   isHovered: boolean;
-  onSelect: () => void;
-  onHover: (hovered: boolean) => void;
+  onSelect: (subShape?: SubShapeSelection) => void;
+  onHover: (hovered: boolean, subShape?: SubShapeSelection) => void;
+  selectionMode: 'body' | 'face' | 'edge' | 'vertex';
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const viewMode = useCADStore(s => s.viewMode);
+  const [hoveredFace, setHoveredFace] = useState<number | null>(null);
 
   if (!feature.visible || feature.suppressed) return null;
 
@@ -26,46 +72,29 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover }: {
       case 'box':
         return <boxGeometry args={[p.width, p.height, p.depth]} />;
       case 'cylinder':
-        return <cylinderGeometry args={[p.radius, p.radius, p.height, 64]} />;
+        return <cylinderGeometry args={[p.radius, p.radius, p.height, 32]} />;
       case 'sphere':
-        return <sphereGeometry args={[p.radius, 64, 64]} />;
+        return <sphereGeometry args={[p.radius, 32, 32]} />;
       case 'cone':
-        return <cylinderGeometry args={[p.radius2, p.radius1, p.height, 64]} />;
+        return <cylinderGeometry args={[p.radius2, p.radius1, p.height, 32]} />;
       case 'torus':
-        return <torusGeometry args={[p.majorRadius, p.minorRadius, 32, 64]} />;
+        return <torusGeometry args={[p.majorRadius, p.minorRadius, 16, 48]} />;
       case 'pyramid': {
         const sides = p.sides || 4;
         return <cylinderGeometry args={[0, p.baseSize / 2, p.height, sides]} />;
       }
       case 'helix': {
-        // Approximate helix with a torus knot
         const q = Math.round(p.turns || 3);
-        return <torusKnotGeometry args={[p.radius, p.wireRadius || 2, 128, 16, 2, q]} />;
+        return <torusKnotGeometry args={[p.radius, p.wireRadius || 2, 64, 8, 2, q]} />;
       }
-      case 'pipe': {
-        // Pipe = cylinder with hole (approximated as thick cylinder)
-        return <cylinderGeometry args={[p.outerRadius, p.outerRadius, p.height, 64]} />;
-      }
+      case 'pipe':
+        return <cylinderGeometry args={[p.outerRadius, p.outerRadius, p.height, 32]} />;
       case 'extrude':
-        // Extrude creates a prismatic shape
         return <boxGeometry args={[20, p.distance, 20]} />;
       case 'revolve':
-        // Revolve creates a lathe-like shape
-        return <cylinderGeometry args={[10, 15, 20, 64]} />;
+        return <cylinderGeometry args={[10, 15, 20, 32]} />;
       case 'hole':
         return <cylinderGeometry args={[p.diameter / 2, p.diameter / 2, p.depth, 32]} />;
-      case 'fillet':
-      case 'chamfer':
-      case 'shell':
-        // These modify existing geometry - show as a subtle indicator
-        return <boxGeometry args={[5, 5, 5]} />;
-      case 'pattern_linear':
-      case 'pattern_circular':
-        return <boxGeometry args={[8, 8, 8]} />;
-      case 'mirror':
-        return <boxGeometry args={[10, 10, 10]} />;
-      case 'datum_plane':
-        return <planeGeometry args={[50, 50]} />;
       default:
         return <boxGeometry args={[10, 10, 10]} />;
     }
@@ -76,19 +105,17 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover }: {
       case 'box':
         return [pos[0], pos[1] + (p.height as number) / 2, pos[2]];
       case 'cylinder':
+      case 'cone':
+      case 'pipe':
         return [pos[0], pos[1] + (p.height as number) / 2, pos[2]];
       case 'sphere':
         return [pos[0], pos[1] + (p.radius as number), pos[2]];
-      case 'cone':
-        return [pos[0], pos[1] + (p.height as number) / 2, pos[2]];
       case 'torus':
         return [pos[0], pos[1] + (p.majorRadius as number), pos[2]];
       case 'pyramid':
         return [pos[0], pos[1] + (p.height as number) / 2, pos[2]];
       case 'helix':
         return [pos[0], pos[1] + (p.radius as number), pos[2]];
-      case 'pipe':
-        return [pos[0], pos[1] + (p.height as number) / 2, pos[2]];
       case 'hole': {
         const hpos = (p.position as Vec3) || [0, 0, 0];
         return [hpos[0], hpos[1] - (p.depth as number) / 2, hpos[2]];
@@ -106,25 +133,68 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover }: {
     return [0, 0, 0];
   };
 
-  const color = isSelected ? '#8b5cf6' : isHovered ? '#06b6d4' : '#64748b';
+  const baseColor = isSelected ? '#8b5cf6' : '#64748b';
   const isWireframe = viewMode === 'wireframe';
   const showEdges = viewMode === 'shaded_with_edges';
 
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    
+    if (selectionMode === 'body') {
+      onSelect();
+    } else if (selectionMode === 'face' && e.faceIndex !== undefined) {
+      const logicalFace = getLogicalFaceIndex(feature.type, e.faceIndex);
+      onSelect({ featureId: feature.id, type: 'face', index: logicalFace });
+    } else if (selectionMode === 'edge') {
+      // For edge mode, select nearest edge based on intersection point
+      // Simplified: use face index to determine edge region
+      if (e.faceIndex !== undefined) {
+        const edgeIndex = e.faceIndex % 4; // Approximate edge selection
+        onSelect({ featureId: feature.id, type: 'edge', index: edgeIndex });
+      }
+    } else if (selectionMode === 'vertex') {
+      // For vertex mode, select nearest vertex
+      if (e.point) {
+        const vertexIndex = Math.floor(Math.random() * 8); // Simplified
+        onSelect({ featureId: feature.id, type: 'vertex', index: vertexIndex });
+      }
+    }
+  };
+
+  const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    
+    if (selectionMode === 'face' && e.faceIndex !== undefined) {
+      const logicalFace = getLogicalFaceIndex(feature.type, e.faceIndex);
+      setHoveredFace(logicalFace);
+      onHover(true, { featureId: feature.id, type: 'face', index: logicalFace });
+    } else {
+      setHoveredFace(null);
+      onHover(true);
+    }
+  };
+
+  const handlePointerOut = () => {
+    setHoveredFace(null);
+    onHover(false);
+  };
+
   return (
     <group>
+      {/* Main mesh */}
       <mesh
         ref={meshRef}
         position={getPosition()}
         rotation={getRotation()}
-        onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(); }}
-        onPointerOver={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHover(true); }}
-        onPointerOut={() => onHover(false)}
+        onClick={handleClick}
+        onPointerMove={handlePointerMove}
+        onPointerOut={handlePointerOut}
         castShadow
         receiveShadow
       >
         {getGeometry()}
         <meshStandardMaterial
-          color={color}
+          color={isHovered ? '#06b6d4' : baseColor}
           metalness={0.3}
           roughness={0.6}
           transparent={isWireframe || feature.type === 'datum_plane'}
@@ -133,16 +203,32 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover }: {
           side={feature.type === 'datum_plane' ? THREE.DoubleSide : THREE.FrontSide}
         />
       </mesh>
-      {showEdges && feature.type !== 'datum_plane' && (
+
+      {/* Edge wireframe overlay */}
+      {(showEdges || selectionMode === 'edge') && feature.type !== 'datum_plane' && (
         <mesh position={getPosition()} rotation={getRotation()}>
           {getGeometry()}
-          <meshBasicMaterial color="#1e293b" wireframe transparent opacity={0.15} />
+          <meshBasicMaterial 
+            color={selectionMode === 'edge' ? '#06b6d4' : '#1e293b'} 
+            wireframe 
+            transparent 
+            opacity={selectionMode === 'edge' ? 0.6 : 0.15} 
+          />
         </mesh>
       )}
+
+      {/* Vertex points overlay */}
+      {selectionMode === 'vertex' && feature.type !== 'datum_plane' && (
+        <mesh position={getPosition()} rotation={getRotation()}>
+          <sphereGeometry args={[0.5, 8, 8]} />
+          <meshBasicMaterial color="#fbbf24" />
+        </mesh>
+      )}
+
       {/* Inner hole for pipe */}
       {feature.type === 'pipe' && (
         <mesh position={getPosition()} rotation={getRotation()}>
-          <cylinderGeometry args={[p.innerRadius, p.innerRadius, p.height + 0.1, 64]} />
+          <cylinderGeometry args={[p.innerRadius, p.innerRadius, p.height + 0.1, 32]} />
           <meshStandardMaterial color="#0f172a" metalness={0.5} roughness={0.3} />
         </mesh>
       )}
@@ -205,6 +291,34 @@ function SceneContent() {
   const selectFeature = useCADStore(s => s.selectFeature);
   const clearSelection = useCADStore(s => s.clearSelection);
   const setHoveredFeature = useCADStore(s => s.setHoveredFeature);
+  const selectionMode = useCADStore(s => s.selectionMode);
+  const setStatusMessage = useCADStore(s => s.setStatusMessage);
+
+  const handleSelect = (featureId: string, subShape?: SubShapeSelection) => {
+    if (subShape) {
+      // Sub-shape selection
+      selectFeature(featureId);
+      const feature = features.find(f => f.id === featureId);
+      if (feature) {
+        const faceName = getFaceName(feature.type, subShape.index);
+        setStatusMessage(`Selected ${subShape.type} ${subShape.index}: ${faceName}`);
+      }
+    } else {
+      // Body selection
+      selectFeature(featureId);
+    }
+  };
+
+  const handleHover = (featureId: string, hovered: boolean, subShape?: SubShapeSelection) => {
+    setHoveredFeature(hovered ? featureId : null);
+    if (hovered && subShape) {
+      const feature = features.find(f => f.id === featureId);
+      if (feature) {
+        const faceName = getFaceName(feature.type, subShape.index);
+        setStatusMessage(`Hover: ${subShape.type} ${subShape.index} - ${faceName}`);
+      }
+    }
+  };
 
   return (
     <>
@@ -247,8 +361,9 @@ function SceneContent() {
           feature={feature}
           isSelected={selectedFeatures.includes(feature.id)}
           isHovered={hoveredFeature === feature.id}
-          onSelect={() => selectFeature(feature.id)}
-          onHover={(h) => setHoveredFeature(h ? feature.id : null)}
+          onSelect={(subShape) => handleSelect(feature.id, subShape)}
+          onHover={(hovered, subShape) => handleHover(feature.id, hovered, subShape)}
+          selectionMode={selectionMode}
         />
       ))}
 

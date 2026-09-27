@@ -21,6 +21,7 @@ export default function App() {
   const addPyramid = useCADStore(s => s.addPyramid);
   const addHelix = useCADStore(s => s.addHelix);
   const addPipe = useCADStore(s => s.addPipe);
+  const setSelectionMode = useCADStore(s => s.setSelectionMode);
 
   // Keyboard shortcuts - FIXED: avoid browser conflicts
   useEffect(() => {
@@ -55,6 +56,11 @@ export default function App() {
           case 'f': openDialog('fillet'); break;
           case 'h': openDialog('hole'); break;
           case 'p': openDialog('pipe'); break;
+          // Selection mode shortcuts
+          case '1': setSelectionMode('body'); break;
+          case '2': setSelectionMode('face'); break;
+          case '3': setSelectionMode('edge'); break;
+          case '4': setSelectionMode('vertex'); break;
         }
       }
       

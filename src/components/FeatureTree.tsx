@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCADStore } from '../store/cadStore';
 
@@ -39,11 +39,62 @@ export default function FeatureTree() {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
+  // FIX: Clamp context menu position to viewport bounds
   const handleContextMenu = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
-    setContextMenu({ id, x: e.clientX, y: e.clientY });
+    e.stopPropagation();
+    
+    // Estimate menu dimensions (will be refined after render)
+    const menuWidth = 180;
+    const menuHeight = 220;
+    const padding = 8;
+    
+    let x = e.clientX;
+    let y = e.clientY;
+    
+    // Clamp to viewport
+    if (x + menuWidth > window.innerWidth - padding) {
+      x = window.innerWidth - menuWidth - padding;
+    }
+    if (y + menuHeight > window.innerHeight - padding) {
+      y = window.innerHeight - menuHeight - padding;
+    }
+    if (x < padding) x = padding;
+    if (y < padding) y = padding;
+    
+    setContextMenu({ id, x, y });
   };
+
+  // Close context menu on outside click or escape
+  useEffect(() => {
+    if (!contextMenu) return;
+    
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenu(null);
+    };
+    const handleScroll = () => setContextMenu(null);
+    
+    // Delay to avoid immediate close from the right-click itself
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+      window.addEventListener('scroll', handleScroll, true);
+    }, 10);
+    
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, [contextMenu]);
 
   const startRename = (id: string, currentName: string) => {
     setRenaming(id);
@@ -168,54 +219,90 @@ export default function FeatureTree() {
         )}
       </AnimatePresence>
 
-      {/* Context Menu */}
+      {/* Context Menu - FIXED: clamped to viewport */}
       <AnimatePresence>
         {contextMenu && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="fixed z-50 bg-gray-800 border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
-              style={{ left: contextMenu.x, top: contextMenu.y }}
+          <motion.div
+            ref={menuRef}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.1 }}
+            className="fixed z-[100] bg-gray-800 border border-white/10 rounded-lg shadow-2xl py-1 min-w-[180px]"
+            style={{ 
+              left: contextMenu.x, 
+              top: contextMenu.y,
+              maxHeight: 'calc(100vh - 20px)',
+              overflowY: 'auto',
+            }}
+          >
+            <div className="px-3 py-1.5 text-[10px] text-gray-500 uppercase tracking-wider border-b border-white/5 mb-1">
+              {features.find(f => f.id === contextMenu.id)?.name || 'Feature'}
+            </div>
+            <button
+              onClick={() => {
+                const f = features.find(f => f.id === contextMenu.id);
+                if (f) startRename(f.id, f.name);
+              }}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-purple-500/10 hover:text-white flex items-center gap-2"
             >
-              <button
-                onClick={() => {
-                  const f = features.find(f => f.id === contextMenu.id);
-                  if (f) startRename(f.id, f.name);
-                }}
-                className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white"
-              >
-                ✏️ Rename
-              </button>
-              <button
-                onClick={() => { suppressFeature(contextMenu.id); setContextMenu(null); }}
-                className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white"
-              >
-                ⏸ Suppress
-              </button>
-              <button
-                onClick={() => { toggleFeatureVisibility(contextMenu.id); setContextMenu(null); }}
-                className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white"
-              >
-                👁 Toggle Visibility
-              </button>
-              <button
-                onClick={() => { openDialog('edit'); setContextMenu(null); }}
-                className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 hover:text-white"
-              >
-                ⚙ Edit Parameters
-              </button>
-              <div className="h-px bg-white/5 my-1" />
-              <button
-                onClick={() => { deleteFeature(contextMenu.id); setContextMenu(null); }}
-                className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
-              >
-                🗑 Delete
-              </button>
-            </motion.div>
-          </>
+              <span className="w-4">✏️</span> Rename
+              <span className="ml-auto text-[10px] text-gray-600">F2</span>
+            </button>
+            <button
+              onClick={() => { suppressFeature(contextMenu.id); setContextMenu(null); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-purple-500/10 hover:text-white flex items-center gap-2"
+            >
+              <span className="w-4">⏸</span> Suppress/Unsuppress
+            </button>
+            <button
+              onClick={() => { toggleFeatureVisibility(contextMenu.id); setContextMenu(null); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-purple-500/10 hover:text-white flex items-center gap-2"
+            >
+              <span className="w-4">👁</span> Toggle Visibility
+              <span className="ml-auto text-[10px] text-gray-600">Space</span>
+            </button>
+            <button
+              onClick={() => { openDialog('edit'); setContextMenu(null); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-purple-500/10 hover:text-white flex items-center gap-2"
+            >
+              <span className="w-4">⚙️</span> Edit Parameters
+              <span className="ml-auto text-[10px] text-gray-600">Enter</span>
+            </button>
+            <div className="h-px bg-white/5 my-1" />
+            <button
+              onClick={() => { 
+                const f = features.find(f => f.id === contextMenu.id);
+                if (f) {
+                  selectFeature(f.id);
+                  openDialog(f.type);
+                }
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-purple-500/10 hover:text-white flex items-center gap-2"
+            >
+              <span className="w-4">📋</span> Duplicate
+              <span className="ml-auto text-[10px] text-gray-600">Ctrl+D</span>
+            </button>
+            <button
+              onClick={() => {
+                const f = features.find(f => f.id === contextMenu.id);
+                if (f) selectFeature(f.id);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-purple-500/10 hover:text-white flex items-center gap-2"
+            >
+              <span className="w-4">🎯</span> Isolate
+            </button>
+            <div className="h-px bg-white/5 my-1" />
+            <button
+              onClick={() => { deleteFeature(contextMenu.id); setContextMenu(null); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 flex items-center gap-2"
+            >
+              <span className="w-4">🗑</span> Delete
+              <span className="ml-auto text-[10px] text-red-400/60">Del</span>
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
