@@ -218,26 +218,111 @@ export default function Ribbon() {
   const redo = useCADStore(s => s.redo);
 
   const handleCommand = (cmdId: string) => {
-    // Commands that open dialogs
+    // Commands that open dialogs (ONLY these have dialog configs)
     const dialogCommands = [
       'box', 'cylinder', 'sphere', 'cone', 'torus', 'pyramid', 'helix',
       'extrude', 'revolve', 'fillet', 'chamfer', 'shell', 'hole', 'pipe',
       'mirror', 'linear_pattern', 'circular_pattern',
     ];
+    
     if (dialogCommands.includes(cmdId)) {
       openDialog(cmdId);
       return;
     }
-    // View commands
-    if (cmdId === 'shaded') { setViewMode('shaded'); return; }
-    if (cmdId === 'wireframe') { setViewMode('wireframe'); return; }
-    if (cmdId === 'shaded_edges') { setViewMode('shaded_with_edges'); return; }
-    if (cmdId === 'hidden') { setViewMode('hidden_line'); return; }
-    if (cmdId === 'raytraced') { setViewMode('raytraced'); return; }
-    // Sketch
-    if (cmdId === 'sketch') { startSketch('XY'); return; }
-    // For all other commands, open dialog as placeholder
-    openDialog(cmdId);
+    
+    // View mode commands
+    const viewModeMap: Record<string, any> = {
+      'shaded': 'shaded',
+      'wireframe': 'wireframe',
+      'shaded_edges': 'shaded_with_edges',
+      'hidden': 'hidden_line',
+      'raytraced': 'raytraced',
+    };
+    if (viewModeMap[cmdId]) {
+      setViewMode(viewModeMap[cmdId]);
+      return;
+    }
+    
+    // Sketch command
+    if (cmdId === 'sketch') {
+      startSketch('XY');
+      return;
+    }
+    
+    // Camera/view commands (for now, show feedback)
+    const cameraCommands = ['fit', 'top', 'front', 'right', 'iso'];
+    if (cameraCommands.includes(cmdId)) {
+      // TODO: Implement camera presets
+      console.log(`Camera command: ${cmdId}`);
+      return;
+    }
+    
+    // Boolean operations (require selection)
+    const booleanCommands = ['union', 'subtract', 'intersect'];
+    if (booleanCommands.includes(cmdId)) {
+      // TODO: Implement boolean operations
+      console.log(`Boolean operation: ${cmdId}`);
+      return;
+    }
+    
+    // Detail operations
+    const detailCommands = ['draft', 'offset', 'thread'];
+    if (detailCommands.includes(cmdId)) {
+      // TODO: Implement detail operations
+      console.log(`Detail operation: ${cmdId}`);
+      return;
+    }
+    
+    // Measurement tools
+    const measureCommands = ['measure_dist', 'measure_angle', 'measure_area', 'measure_vol'];
+    if (measureCommands.includes(cmdId)) {
+      // TODO: Implement measurement tools
+      console.log(`Measurement: ${cmdId}`);
+      return;
+    }
+    
+    // Expression/parameter tools
+    const toolCommands = ['expressions', 'parameters'];
+    if (toolCommands.includes(cmdId)) {
+      // TODO: Implement expression editor
+      console.log(`Tool: ${cmdId}`);
+      return;
+    }
+    
+    // Modify operations
+    const modifyCommands = ['move', 'rotate_mod', 'simplify', 'repair'];
+    if (modifyCommands.includes(cmdId)) {
+      // TODO: Implement modify operations
+      console.log(`Modify: ${cmdId}`);
+      return;
+    }
+    
+    // Sketch tools (2D drawing)
+    const sketchTools = ['line', 'arc', 'circle', 'spline', 'rectangle', 'ellipse', 'polygon'];
+    if (sketchTools.includes(cmdId)) {
+      // TODO: Implement sketch tools
+      console.log(`Sketch tool: ${cmdId}`);
+      return;
+    }
+    
+    // Datum/WCS
+    const datumCommands = ['datum_plane', 'datum_axis', 'datum_point', 'datum_csys', 'wcs_origin', 'wcs_orient'];
+    if (datumCommands.includes(cmdId)) {
+      // TODO: Implement datum creation
+      console.log(`Datum: ${cmdId}`);
+      return;
+    }
+    
+    // Surface operations
+    const surfaceCommands = ['extrude_surf', 'revolve_surf', 'sweep_surf', 'n_surface', 'fillet_surf', 'trim_surf', 'extend_surf', 'offset_surf', 'sew', 'split'];
+    if (surfaceCommands.includes(cmdId)) {
+      // TODO: Implement surface operations
+      console.log(`Surface: ${cmdId}`);
+      return;
+    }
+    
+    // Unknown command - log for debugging
+    console.warn(`Unknown command: ${cmdId}`);
   };
 
   const currentTab = ribbonTabs.find(t => t.id === activeTab);

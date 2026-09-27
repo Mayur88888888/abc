@@ -167,6 +167,14 @@ const dialogConfigs: Record<string, DialogConfig> = {
       { name: 'angle', label: 'Total Angle', type: 'number', default: 360, min: 1, max: 360, step: 1, unit: '°' },
     ],
   },
+  edit: {
+    title: 'Edit Parameters',
+    icon: '⚙️',
+    fields: [
+      { name: 'param1', label: 'Parameter 1', type: 'number', default: 10, min: 0, step: 0.1, unit: 'mm' },
+      { name: 'param2', label: 'Parameter 2', type: 'number', default: 20, min: 0, step: 0.1, unit: 'mm' },
+    ],
+  },
 };
 
 export default function CommandDialog() {
