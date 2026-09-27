@@ -8,41 +8,45 @@ interface Command {
   category: string;
   icon: string;
   shortcut?: string;
-  action: () => void;
 }
 
 const commands: Command[] = [
   // Primitives
-  { id: 'box', label: 'Create Block', category: 'Primitives', icon: '◻️', shortcut: 'B', action: () => {} },
-  { id: 'cylinder', label: 'Create Cylinder', category: 'Primitives', icon: '⬡', shortcut: 'C', action: () => {} },
-  { id: 'sphere', label: 'Create Sphere', category: 'Primitives', icon: '⬤', shortcut: 'S', action: () => {} },
-  { id: 'cone', label: 'Create Cone', category: 'Primitives', icon: '△', action: () => {} },
-  { id: 'torus', label: 'Create Torus', category: 'Primitives', icon: '◎', action: () => {} },
+  { id: 'box', label: 'Create Block', category: 'Primitives', icon: '◻️', shortcut: 'B' },
+  { id: 'cylinder', label: 'Create Cylinder', category: 'Primitives', icon: '⬡', shortcut: 'C' },
+  { id: 'sphere', label: 'Create Sphere', category: 'Primitives', icon: '⬤' },
+  { id: 'cone', label: 'Create Cone', category: 'Primitives', icon: '△' },
+  { id: 'torus', label: 'Create Torus', category: 'Primitives', icon: '◎' },
+  { id: 'pyramid', label: 'Create Pyramid', category: 'Primitives', icon: '🔺' },
+  { id: 'helix', label: 'Create Helix', category: 'Primitives', icon: '🌀' },
+  { id: 'pipe', label: 'Create Pipe', category: 'Primitives', icon: '🔧', shortcut: 'P' },
   // Features
-  { id: 'extrude', label: 'Extrude', category: 'Features', icon: '⬆', shortcut: 'E', action: () => {} },
-  { id: 'revolve', label: 'Revolve', category: 'Features', icon: '🔄', action: () => {} },
-  { id: 'sweep', label: 'Sweep', category: 'Features', icon: '↗', action: () => {} },
-  { id: 'loft', label: 'Loft', category: 'Features', icon: '⤴', action: () => {} },
+  { id: 'extrude', label: 'Extrude', category: 'Features', icon: '⬆', shortcut: 'E' },
+  { id: 'revolve', label: 'Revolve', category: 'Features', icon: '🔄' },
+  { id: 'sweep', label: 'Sweep', category: 'Features', icon: '↗' },
+  { id: 'loft', label: 'Loft', category: 'Features', icon: '⤴' },
   // Detail
-  { id: 'fillet', label: 'Edge Fillet', category: 'Detail', icon: '⌢', shortcut: 'F', action: () => {} },
-  { id: 'chamfer', label: 'Chamfer', category: 'Detail', icon: '⟋', action: () => {} },
-  { id: 'shell', label: 'Shell', category: 'Detail', icon: '⊡', action: () => {} },
-  { id: 'hole', label: 'Hole', category: 'Detail', icon: '⊙', shortcut: 'H', action: () => {} },
+  { id: 'fillet', label: 'Edge Fillet', category: 'Detail', icon: '⌢', shortcut: 'F' },
+  { id: 'chamfer', label: 'Chamfer', category: 'Detail', icon: '⟋' },
+  { id: 'shell', label: 'Shell', category: 'Detail', icon: '⊡' },
+  { id: 'hole', label: 'Hole', category: 'Detail', icon: '⊙', shortcut: 'H' },
   // Patterns
-  { id: 'linear_pattern', label: 'Linear Pattern', category: 'Pattern', icon: '⋮', action: () => {} },
-  { id: 'circular_pattern', label: 'Circular Pattern', category: 'Pattern', icon: '⟳', action: () => {} },
+  { id: 'linear_pattern', label: 'Linear Pattern', category: 'Pattern', icon: '⋮' },
+  { id: 'circular_pattern', label: 'Circular Pattern', category: 'Pattern', icon: '⟳' },
+  { id: 'mirror', label: 'Mirror', category: 'Pattern', icon: '↔' },
   // View
-  { id: 'view_fit', label: 'Fit View', category: 'View', icon: '⊡', shortcut: 'F8', action: () => {} },
-  { id: 'view_iso', label: 'Isometric View', category: 'View', icon: '◇', shortcut: 'F6', action: () => {} },
-  { id: 'view_top', label: 'Top View', category: 'View', icon: '⬆', action: () => {} },
-  { id: 'view_front', label: 'Front View', category: 'View', icon: '⬛', action: () => {} },
+  { id: 'view_fit', label: 'Fit View', category: 'View', icon: '⊡', shortcut: 'F8' },
+  { id: 'view_iso', label: 'Isometric View', category: 'View', icon: '◇', shortcut: 'F6' },
+  { id: 'view_top', label: 'Top View', category: 'View', icon: '⬆' },
+  { id: 'view_front', label: 'Front View', category: 'View', icon: '⬛' },
   // Tools
-  { id: 'measure', label: 'Measure Distance', category: 'Tools', icon: '📏', action: () => {} },
-  { id: 'expressions', label: 'Expressions Editor', category: 'Tools', icon: 'fx', action: () => {} },
+  { id: 'measure_dist', label: 'Measure Distance', category: 'Tools', icon: '📏' },
+  { id: 'measure_angle', label: 'Measure Angle', category: 'Tools', icon: '📐' },
+  { id: 'expressions', label: 'Expressions Editor', category: 'Tools', icon: 'fx' },
   // Edit
-  { id: 'undo', label: 'Undo', category: 'Edit', icon: '↩', shortcut: 'Ctrl+Z', action: () => {} },
-  { id: 'redo', label: 'Redo', category: 'Edit', icon: '↪', shortcut: 'Ctrl+Y', action: () => {} },
-  { id: 'delete', label: 'Delete', category: 'Edit', icon: '🗑', shortcut: 'Del', action: () => {} },
+  { id: 'undo', label: 'Undo', category: 'Edit', icon: '↩', shortcut: 'Ctrl+Z' },
+  { id: 'redo', label: 'Redo', category: 'Edit', icon: '↪', shortcut: 'Ctrl+Y' },
+  { id: 'delete', label: 'Delete', category: 'Edit', icon: '🗑', shortcut: 'Del' },
 ];
 
 export default function CommandPalette() {
@@ -73,7 +77,7 @@ export default function CommandPalette() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'p') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
         e.preventDefault();
         togglePalette();
       }
@@ -141,7 +145,7 @@ export default function CommandPalette() {
             value={query}
             onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
             onKeyDown={handleKeyDown}
-            placeholder="Type a command... (e.g., 'block', 'extrude', 'fillet')"
+            placeholder="Type a command... (e.g., 'block', 'extrude', 'fillet', 'helix')"
             className="flex-1 bg-transparent text-white text-sm outline-none placeholder-gray-600"
           />
           <kbd className="px-1.5 py-0.5 text-[10px] text-gray-500 bg-white/5 rounded border border-white/10">

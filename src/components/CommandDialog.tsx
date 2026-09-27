@@ -1,13 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCADStore } from '../store/cadStore';
-
-interface DialogConfig {
-  title: string;
-  icon: string;
-  fields: FieldConfig[];
-  onSubmit: (params: Record<string, number>) => void;
-}
 
 interface FieldConfig {
   name: string;
@@ -21,6 +14,12 @@ interface FieldConfig {
   options?: { value: string; label: string }[];
 }
 
+interface DialogConfig {
+  title: string;
+  icon: string;
+  fields: FieldConfig[];
+}
+
 const dialogConfigs: Record<string, DialogConfig> = {
   box: {
     title: 'Block (Pad)',
@@ -30,7 +29,6 @@ const dialogConfigs: Record<string, DialogConfig> = {
       { name: 'height', label: 'Height (Y)', type: 'number', default: 30, min: 0.1, step: 0.1, unit: 'mm' },
       { name: 'depth', label: 'Width (Z)', type: 'number', default: 40, min: 0.1, step: 0.1, unit: 'mm' },
     ],
-    onSubmit: (p) => {},
   },
   cylinder: {
     title: 'Cylinder',
@@ -39,7 +37,6 @@ const dialogConfigs: Record<string, DialogConfig> = {
       { name: 'radius', label: 'Radius', type: 'number', default: 20, min: 0.1, step: 0.1, unit: 'mm' },
       { name: 'height', label: 'Height', type: 'number', default: 50, min: 0.1, step: 0.1, unit: 'mm' },
     ],
-    onSubmit: (p) => {},
   },
   sphere: {
     title: 'Sphere',
@@ -47,7 +44,6 @@ const dialogConfigs: Record<string, DialogConfig> = {
     fields: [
       { name: 'radius', label: 'Radius', type: 'number', default: 25, min: 0.1, step: 0.1, unit: 'mm' },
     ],
-    onSubmit: (p) => {},
   },
   cone: {
     title: 'Cone',
@@ -57,7 +53,6 @@ const dialogConfigs: Record<string, DialogConfig> = {
       { name: 'radius2', label: 'Top Radius', type: 'number', default: 10, min: 0, step: 0.1, unit: 'mm' },
       { name: 'height', label: 'Height', type: 'number', default: 50, min: 0.1, step: 0.1, unit: 'mm' },
     ],
-    onSubmit: (p) => {},
   },
   torus: {
     title: 'Torus',
@@ -66,7 +61,25 @@ const dialogConfigs: Record<string, DialogConfig> = {
       { name: 'majorRadius', label: 'Major Radius', type: 'number', default: 30, min: 0.1, step: 0.1, unit: 'mm' },
       { name: 'minorRadius', label: 'Minor Radius', type: 'number', default: 10, min: 0.1, step: 0.1, unit: 'mm' },
     ],
-    onSubmit: (p) => {},
+  },
+  pyramid: {
+    title: 'Pyramid',
+    icon: '🔺',
+    fields: [
+      { name: 'baseSize', label: 'Base Size', type: 'number', default: 30, min: 0.1, step: 0.1, unit: 'mm' },
+      { name: 'height', label: 'Height', type: 'number', default: 40, min: 0.1, step: 0.1, unit: 'mm' },
+      { name: 'sides', label: 'Number of Sides', type: 'number', default: 4, min: 3, max: 12, step: 1 },
+    ],
+  },
+  helix: {
+    title: 'Helix',
+    icon: '🌀',
+    fields: [
+      { name: 'radius', label: 'Radius', type: 'number', default: 20, min: 0.1, step: 0.1, unit: 'mm' },
+      { name: 'pitch', label: 'Pitch', type: 'number', default: 10, min: 0.1, step: 0.1, unit: 'mm' },
+      { name: 'turns', label: 'Number of Turns', type: 'number', default: 5, min: 0.1, step: 0.5 },
+      { name: 'wireRadius', label: 'Wire Radius', type: 'number', default: 2, min: 0.1, step: 0.1, unit: 'mm' },
+    ],
   },
   extrude: {
     title: 'Extrude',
@@ -75,7 +88,6 @@ const dialogConfigs: Record<string, DialogConfig> = {
       { name: 'distance', label: 'Distance', type: 'number', default: 30, min: 0.1, step: 0.1, unit: 'mm' },
       { name: 'taper', label: 'Taper Angle', type: 'number', default: 0, min: -45, max: 45, step: 0.5, unit: '°' },
     ],
-    onSubmit: (p) => {},
   },
   revolve: {
     title: 'Revolve',
@@ -83,7 +95,6 @@ const dialogConfigs: Record<string, DialogConfig> = {
     fields: [
       { name: 'angle', label: 'Angle', type: 'number', default: 360, min: 0.1, max: 360, step: 1, unit: '°' },
     ],
-    onSubmit: (p) => {},
   },
   fillet: {
     title: 'Edge Fillet',
@@ -91,7 +102,6 @@ const dialogConfigs: Record<string, DialogConfig> = {
     fields: [
       { name: 'radius', label: 'Radius', type: 'number', default: 3, min: 0.01, step: 0.1, unit: 'mm' },
     ],
-    onSubmit: (p) => {},
   },
   chamfer: {
     title: 'Chamfer',
@@ -100,7 +110,6 @@ const dialogConfigs: Record<string, DialogConfig> = {
       { name: 'distance', label: 'Distance', type: 'number', default: 2, min: 0.01, step: 0.1, unit: 'mm' },
       { name: 'angle', label: 'Angle', type: 'number', default: 45, min: 1, max: 89, step: 1, unit: '°' },
     ],
-    onSubmit: (p) => {},
   },
   shell: {
     title: 'Shell',
@@ -108,7 +117,6 @@ const dialogConfigs: Record<string, DialogConfig> = {
     fields: [
       { name: 'thickness', label: 'Wall Thickness', type: 'number', default: 2, min: 0.1, step: 0.1, unit: 'mm' },
     ],
-    onSubmit: (p) => {},
   },
   hole: {
     title: 'Hole',
@@ -116,13 +124,48 @@ const dialogConfigs: Record<string, DialogConfig> = {
     fields: [
       { name: 'diameter', label: 'Diameter', type: 'number', default: 10, min: 0.1, step: 0.1, unit: 'mm' },
       { name: 'depth', label: 'Depth', type: 'number', default: 20, min: 0.1, step: 0.1, unit: 'mm' },
-      { name: 'type', label: 'Hole Type', type: 'select', default: 'simple', options: [
+      { name: 'holeType', label: 'Hole Type', type: 'select', default: 'simple', options: [
         { value: 'simple', label: 'Simple' },
         { value: 'countersunk', label: 'Countersunk' },
         { value: 'counterbore', label: 'Counterbore' },
       ]},
     ],
-    onSubmit: (p) => {},
+  },
+  pipe: {
+    title: 'Pipe',
+    icon: '🔧',
+    fields: [
+      { name: 'outerRadius', label: 'Outer Radius', type: 'number', default: 15, min: 0.1, step: 0.1, unit: 'mm' },
+      { name: 'innerRadius', label: 'Inner Radius', type: 'number', default: 10, min: 0.1, step: 0.1, unit: 'mm' },
+      { name: 'height', label: 'Height', type: 'number', default: 60, min: 0.1, step: 0.1, unit: 'mm' },
+    ],
+  },
+  mirror: {
+    title: 'Mirror',
+    icon: '↔',
+    fields: [
+      { name: 'plane', label: 'Mirror Plane', type: 'select', default: 'XY', options: [
+        { value: 'XY', label: 'XY Plane' },
+        { value: 'XZ', label: 'XZ Plane' },
+        { value: 'YZ', label: 'YZ Plane' },
+      ]},
+    ],
+  },
+  linear_pattern: {
+    title: 'Linear Pattern',
+    icon: '⋮',
+    fields: [
+      { name: 'count', label: 'Count', type: 'number', default: 5, min: 2, max: 100, step: 1 },
+      { name: 'spacing', label: 'Spacing', type: 'number', default: 20, min: 0.1, step: 0.1, unit: 'mm' },
+    ],
+  },
+  circular_pattern: {
+    title: 'Circular Pattern',
+    icon: '⟳',
+    fields: [
+      { name: 'count', label: 'Count', type: 'number', default: 6, min: 2, max: 100, step: 1 },
+      { name: 'angle', label: 'Total Angle', type: 'number', default: 360, min: 1, max: 360, step: 1, unit: '°' },
+    ],
   },
 };
 
@@ -134,65 +177,98 @@ export default function CommandDialog() {
   const addSphere = useCADStore(s => s.addSphere);
   const addCone = useCADStore(s => s.addCone);
   const addTorus = useCADStore(s => s.addTorus);
+  const addPyramid = useCADStore(s => s.addPyramid);
+  const addHelix = useCADStore(s => s.addHelix);
   const addExtrude = useCADStore(s => s.addExtrude);
   const addRevolve = useCADStore(s => s.addRevolve);
   const addFillet = useCADStore(s => s.addFillet);
   const addChamfer = useCADStore(s => s.addChamfer);
   const addShell = useCADStore(s => s.addShell);
   const addHole = useCADStore(s => s.addHole);
+  const addPipe = useCADStore(s => s.addPipe);
+  const addMirror = useCADStore(s => s.addMirror);
+  const addLinearPattern = useCADStore(s => s.addLinearPattern);
+  const addCircularPattern = useCADStore(s => s.addCircularPattern);
 
   const config = dialogOpen ? dialogConfigs[dialogOpen] : null;
   const [values, setValues] = useState<Record<string, number | string>>({});
 
+  // Reset values when dialog changes
+  useEffect(() => {
+    if (config) {
+      const initial: Record<string, number | string> = {};
+      config.fields.forEach(f => {
+        initial[f.name] = f.default;
+      });
+      setValues(initial);
+    }
+  }, [dialogOpen]);
+
   if (!config) return null;
 
-  // Initialize values
-  const getValues = () => {
-    const v: Record<string, number | string> = {};
-    config.fields.forEach(f => {
-      v[f.name] = values[f.name] !== undefined ? values[f.name] : f.default;
-    });
-    return v;
+  const getValue = (name: string): number | string => {
+    return values[name] !== undefined ? values[name] : config.fields.find(f => f.name === name)?.default ?? 0;
+  };
+
+  const getNum = (name: string): number => {
+    const v = getValue(name);
+    return typeof v === 'number' ? v : parseFloat(v as string) || 0;
   };
 
   const handleSubmit = () => {
-    const v = getValues();
     switch (dialogOpen) {
       case 'box':
-        addBox(v.width as number, v.height as number, v.depth as number);
+        addBox(getNum('width'), getNum('height'), getNum('depth'));
         break;
       case 'cylinder':
-        addCylinder(v.radius as number, v.height as number);
+        addCylinder(getNum('radius'), getNum('height'));
         break;
       case 'sphere':
-        addSphere(v.radius as number);
+        addSphere(getNum('radius'));
         break;
       case 'cone':
-        addCone(v.radius1 as number, v.radius2 as number, v.height as number);
+        addCone(getNum('radius1'), getNum('radius2'), getNum('height'));
         break;
       case 'torus':
-        addTorus(v.majorRadius as number, v.minorRadius as number);
+        addTorus(getNum('majorRadius'), getNum('minorRadius'));
+        break;
+      case 'pyramid':
+        addPyramid(getNum('baseSize'), getNum('height'), getNum('sides'));
+        break;
+      case 'helix':
+        addHelix(getNum('radius'), getNum('pitch'), getNum('turns'), getNum('wireRadius'));
         break;
       case 'extrude':
-        addExtrude('sketch_1', v.distance as number, [0, 1, 0], v.taper as number);
+        addExtrude(getNum('distance'), [0, 1, 0], getNum('taper'));
         break;
       case 'revolve':
-        addRevolve('sketch_1', [0, 1, 0], v.angle as number);
+        addRevolve([0, 1, 0], getNum('angle'));
         break;
       case 'fillet':
-        addFillet(['edge_1'], v.radius as number);
+        addFillet(getNum('radius'));
         break;
       case 'chamfer':
-        addChamfer(['edge_1'], v.distance as number, v.angle as number);
+        addChamfer(getNum('distance'), getNum('angle'));
         break;
       case 'shell':
-        addShell(v.thickness as number, ['face_top']);
+        addShell(getNum('thickness'));
         break;
       case 'hole':
-        addHole([0, 0, 0], v.diameter as number, v.depth as number, v.type as string);
+        addHole([0, 0, 0], getNum('diameter'), getNum('depth'), getValue('holeType') as string);
+        break;
+      case 'pipe':
+        addPipe(getNum('outerRadius'), getNum('innerRadius'), getNum('height'));
+        break;
+      case 'mirror':
+        addMirror(getValue('plane') as string);
+        break;
+      case 'linear_pattern':
+        addLinearPattern([1, 0, 0], getNum('count'), getNum('spacing'));
+        break;
+      case 'circular_pattern':
+        addCircularPattern([0, 1, 0], getNum('count'), getNum('angle'));
         break;
     }
-    setValues({});
     closeDialog();
   };
 
@@ -240,7 +316,7 @@ export default function CommandDialog() {
                   <div className="relative">
                     <input
                       type="number"
-                      value={values[field.name] !== undefined ? values[field.name] : field.default}
+                      value={getValue(field.name)}
                       onChange={(e) => setValues({ ...values, [field.name]: parseFloat(e.target.value) || 0 })}
                       min={field.min}
                       max={field.max}
@@ -255,7 +331,7 @@ export default function CommandDialog() {
                   </div>
                 ) : (
                   <select
-                    value={values[field.name] !== undefined ? values[field.name] : field.default}
+                    value={getValue(field.name)}
                     onChange={(e) => setValues({ ...values, [field.name]: e.target.value })}
                     className="w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500/50 appearance-none"
                   >

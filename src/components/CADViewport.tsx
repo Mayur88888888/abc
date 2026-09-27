@@ -1,11 +1,11 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Html, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { useCADStore } from '../store/cadStore';
 import type { Feature, Vec3 } from '../lib/cadEngine';
 
-// Feature renderer - renders each feature as 3D geometry
+// Feature renderer - renders each feature as 3D geometry with proper positioning
 function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover }: {
   feature: Feature;
   isSelected: boolean;
@@ -18,63 +18,104 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover }: {
 
   if (!feature.visible || feature.suppressed) return null;
 
+  const p = feature.params;
+  const pos = (p.position as Vec3) || [0, 0, 0];
+
   const getGeometry = () => {
-    const p = feature.params;
     switch (feature.type) {
       case 'box':
-        return <boxGeometry args={[p.width as number, p.height as number, p.depth as number]} />;
+        return <boxGeometry args={[p.width, p.height, p.depth]} />;
       case 'cylinder':
-        return <cylinderGeometry args={[p.radius as number, p.radius as number, p.height as number, 64]} />;
+        return <cylinderGeometry args={[p.radius, p.radius, p.height, 64]} />;
       case 'sphere':
-        return <sphereGeometry args={[p.radius as number, 64, 64]} />;
+        return <sphereGeometry args={[p.radius, 64, 64]} />;
       case 'cone':
-        return <cylinderGeometry args={[p.radius2 as number, p.radius1 as number, p.height as number, 64]} />;
+        return <cylinderGeometry args={[p.radius2, p.radius1, p.height, 64]} />;
       case 'torus':
-        return <torusGeometry args={[p.majorRadius as number, p.minorRadius as number, 32, 64]} />;
+        return <torusGeometry args={[p.majorRadius, p.minorRadius, 32, 64]} />;
+      case 'pyramid': {
+        const sides = p.sides || 4;
+        return <cylinderGeometry args={[0, p.baseSize / 2, p.height, sides]} />;
+      }
+      case 'helix': {
+        // Approximate helix with a torus knot
+        const q = Math.round(p.turns || 3);
+        return <torusKnotGeometry args={[p.radius, p.wireRadius || 2, 128, 16, 2, q]} />;
+      }
+      case 'pipe': {
+        // Pipe = cylinder with hole (approximated as thick cylinder)
+        return <cylinderGeometry args={[p.outerRadius, p.outerRadius, p.height, 64]} />;
+      }
       case 'extrude':
-        return <boxGeometry args={[20, (p.distance as number), 20]} />;
+        // Extrude creates a prismatic shape
+        return <boxGeometry args={[20, p.distance, 20]} />;
+      case 'revolve':
+        // Revolve creates a lathe-like shape
+        return <cylinderGeometry args={[10, 15, 20, 64]} />;
       case 'hole':
-        return <cylinderGeometry args={[
-          (p.diameter as number) / 2,
-          (p.diameter as number) / 2,
-          p.depth as number,
-          32
-        ]} />;
+        return <cylinderGeometry args={[p.diameter / 2, p.diameter / 2, p.depth, 32]} />;
+      case 'fillet':
+      case 'chamfer':
+      case 'shell':
+        // These modify existing geometry - show as a subtle indicator
+        return <boxGeometry args={[5, 5, 5]} />;
+      case 'pattern_linear':
+      case 'pattern_circular':
+        return <boxGeometry args={[8, 8, 8]} />;
+      case 'mirror':
+        return <boxGeometry args={[10, 10, 10]} />;
+      case 'datum_plane':
+        return <planeGeometry args={[50, 50]} />;
       default:
         return <boxGeometry args={[10, 10, 10]} />;
     }
   };
 
   const getPosition = (): [number, number, number] => {
-    const p = feature.params;
     switch (feature.type) {
       case 'box':
-        return [0, (p.height as number) / 2, 0];
+        return [pos[0], pos[1] + (p.height as number) / 2, pos[2]];
       case 'cylinder':
-        return [0, (p.height as number) / 2, 0];
+        return [pos[0], pos[1] + (p.height as number) / 2, pos[2]];
       case 'sphere':
-        return [0, p.radius as number, 0];
+        return [pos[0], pos[1] + (p.radius as number), pos[2]];
       case 'cone':
-        return [0, (p.height as number) / 2, 0];
+        return [pos[0], pos[1] + (p.height as number) / 2, pos[2]];
       case 'torus':
-        return [0, p.majorRadius as number, 0];
-      case 'hole':
-        const pos = p.position as Vec3;
-        return pos || [0, 0, 0];
+        return [pos[0], pos[1] + (p.majorRadius as number), pos[2]];
+      case 'pyramid':
+        return [pos[0], pos[1] + (p.height as number) / 2, pos[2]];
+      case 'helix':
+        return [pos[0], pos[1] + (p.radius as number), pos[2]];
+      case 'pipe':
+        return [pos[0], pos[1] + (p.height as number) / 2, pos[2]];
+      case 'hole': {
+        const hpos = (p.position as Vec3) || [0, 0, 0];
+        return [hpos[0], hpos[1] - (p.depth as number) / 2, hpos[2]];
+      }
+      case 'datum_plane':
+        return [0, p.offset || 0, 0];
       default:
-        return [0, 5, 0];
+        return [pos[0], pos[1] + 5, pos[2]];
     }
   };
 
+  const getRotation = (): [number, number, number] => {
+    if (feature.type === 'torus') return [Math.PI / 2, 0, 0];
+    if (feature.type === 'datum_plane') return [-Math.PI / 2, 0, 0];
+    return [0, 0, 0];
+  };
+
   const color = isSelected ? '#8b5cf6' : isHovered ? '#06b6d4' : '#64748b';
-  const opacity = viewMode === 'wireframe' ? 0 : 1;
-  const wireframe = viewMode === 'wireframe';
+  const isWireframe = viewMode === 'wireframe';
+  const showEdges = viewMode === 'shaded_with_edges';
 
   return (
     <group>
       <mesh
         ref={meshRef}
         position={getPosition()}
+        rotation={getRotation()}
         onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(); }}
         onPointerOver={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHover(true); }}
         onPointerOut={() => onHover(false)}
@@ -86,15 +127,23 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover }: {
           color={color}
           metalness={0.3}
           roughness={0.6}
-          transparent={viewMode === 'wireframe'}
-          opacity={opacity}
-          wireframe={wireframe}
+          transparent={isWireframe || feature.type === 'datum_plane'}
+          opacity={isWireframe ? 0 : feature.type === 'datum_plane' ? 0.2 : 1}
+          wireframe={isWireframe}
+          side={feature.type === 'datum_plane' ? THREE.DoubleSide : THREE.FrontSide}
         />
       </mesh>
-      {(viewMode === 'shaded_with_edges') && (
-        <mesh position={getPosition()}>
+      {showEdges && feature.type !== 'datum_plane' && (
+        <mesh position={getPosition()} rotation={getRotation()}>
           {getGeometry()}
-          <meshBasicMaterial color="#1e293b" wireframe transparent opacity={0.3} />
+          <meshBasicMaterial color="#1e293b" wireframe transparent opacity={0.15} />
+        </mesh>
+      )}
+      {/* Inner hole for pipe */}
+      {feature.type === 'pipe' && (
+        <mesh position={getPosition()} rotation={getRotation()}>
+          <cylinderGeometry args={[p.innerRadius, p.innerRadius, p.height + 0.1, 64]} />
+          <meshStandardMaterial color="#0f172a" metalness={0.5} roughness={0.3} />
         </mesh>
       )}
     </group>
@@ -111,7 +160,6 @@ function AxesHelper() {
       <Line points={[[0, 0, 0], [100, 0, 0]]} color="#ef4444" lineWidth={2} />
       <Line points={[[0, 0, 0], [0, 100, 0]]} color="#22c55e" lineWidth={2} />
       <Line points={[[0, 0, 0], [0, 0, 100]]} color="#3b82f6" lineWidth={2} />
-      {/* Axis labels */}
       <Html position={[105, 0, 0]} center>
         <span className="text-red-400 text-xs font-bold select-none">X</span>
       </Html>

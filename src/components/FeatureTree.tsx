@@ -8,6 +8,9 @@ const featureIcons: Record<string, string> = {
   sphere: '⬤',
   cone: '△',
   torus: '◎',
+  pyramid: '🔺',
+  helix: '🌀',
+  pipe: '🔧',
   extrude: '⬆',
   revolve: '🔄',
   fillet: '⌢',
@@ -19,6 +22,7 @@ const featureIcons: Record<string, string> = {
   datum_plane: '▦',
   sweep: '↗',
   loft: '⤴',
+  mirror: '↔',
   sketch: '✏️',
 };
 
