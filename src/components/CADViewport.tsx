@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Html, Line } from '@react-three/drei';
 import * as THREE from 'three';
@@ -11,14 +11,12 @@ function getFaceInfo(featureType: string, faceIndex: number): { name: string; co
   
   switch (featureType) {
     case 'box':
-      // BoxGeometry has 12 triangles = 6 faces (2 triangles per face)
       const boxFaces = ['Right (+X)', 'Left (-X)', 'Top (+Y)', 'Bottom (-Y)', 'Front (+Z)', 'Back (-Z)'];
       const boxFaceIdx = Math.floor(faceIndex / 2);
       return { name: boxFaces[boxFaceIdx] || defaultInfo.name, color: '#06b6d4' };
     
     case 'cylinder':
     case 'cone':
-      // Cylinder has: side triangles, top cap, bottom cap
       if (faceIndex < 64) return { name: 'Cylindrical Face', color: '#06b6d4' };
       if (faceIndex < 96) return { name: 'Top Cap', color: '#10b981' };
       return { name: 'Bottom Cap', color: '#f59e0b' };
@@ -45,12 +43,33 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const viewMode = useCADStore(s => s.viewMode);
-  // Removed hoveredFaceIdx state - not used in render, was causing per-frame re-renders
 
   if (!feature.visible || feature.suppressed) return null;
 
   const p = feature.params;
   const pos = (p.position as Vec3) || [0, 0, 0];
+
+  // Memoize helix geometry to prevent memory leak
+  const helixGeometry = useMemo(() => {
+    if (feature.type !== 'helix') return null;
+    const turns = p.turns || 3;
+    const radius = p.radius || 10;
+    const wireRadius = p.wireRadius || 1;
+    const pitch = p.pitch || 10;
+    const points: THREE.Vector3[] = [];
+    const segments = Math.max(32, Math.round(turns * 32));
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const angle = t * turns * Math.PI * 2;
+      points.push(new THREE.Vector3(
+        Math.cos(angle) * radius,
+        t * turns * pitch,
+        Math.sin(angle) * radius
+      ));
+    }
+    const curve = new THREE.CatmullRomCurve3(points);
+    return new THREE.TubeGeometry(curve, segments, wireRadius, 8, false);
+  }, [feature.type, p.turns, p.radius, p.wireRadius, p.pitch]);
 
   const getGeometry = () => {
     switch (feature.type) {
@@ -66,36 +85,35 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
         return <torusGeometry args={[p.majorRadius, p.minorRadius, 16, 48]} />;
       case 'pyramid': {
         const sides = p.sides || 4;
-        // Use cone geometry with very small top radius to simulate pyramid
-        // For a true pyramid, we'd need custom geometry, but this is close enough
         return <coneGeometry args={[p.baseSize / 2, p.height, sides]} />;
       }
-      case 'helix': {
-        const turns = p.turns || 3;
-        const radius = p.radius || 10;
-        const wireRadius = p.wireRadius || 1;
-        // Create helix using tube geometry along a helix curve
-        const points: THREE.Vector3[] = [];
-        const segments = turns * 32;
-        for (let i = 0; i <= segments; i++) {
-          const t = i / segments;
-          const angle = t * turns * Math.PI * 2;
-          const x = Math.cos(angle) * radius;
-          const y = t * turns * 10; // Height increases with turns
-          const z = Math.sin(angle) * radius;
-          points.push(new THREE.Vector3(x, y, z));
-        }
-        const curve = new THREE.CatmullRomCurve3(points);
-        return <tubeGeometry args={[curve, segments, wireRadius, 8, false]} />;
-      }
+      case 'helix':
+        return helixGeometry ? <primitive object={helixGeometry} attach="geometry" /> : null;
       case 'pipe':
         return <cylinderGeometry args={[p.outerRadius, p.outerRadius, p.height, 32]} />;
       case 'extrude':
         return <boxGeometry args={[20, p.distance, 20]} />;
       case 'revolve':
         return <cylinderGeometry args={[10, 15, 20, 32]} />;
+      case 'fillet':
+        return <sphereGeometry args={[p.radius || 3, 16, 16]} />;
+      case 'chamfer':
+        return <boxGeometry args={[p.distance || 2, p.distance || 2, p.distance || 2]} />;
+      case 'shell':
+        return <boxGeometry args={[15, 15, 15]} />;
       case 'hole':
         return <cylinderGeometry args={[p.diameter / 2, p.diameter / 2, p.depth, 32]} />;
+      case 'mirror':
+        return <boxGeometry args={[20, 20, 20]} />;
+      case 'pattern_linear':
+        return <boxGeometry args={[10, 10, 10]} />;
+      case 'pattern_circular':
+        return <cylinderGeometry args={[5, 5, 10, 16]} />;
+      case 'datum_plane':
+        return <planeGeometry args={[50, 50]} />;
+      case 'sweep':
+      case 'loft':
+        return <boxGeometry args={[15, 15, 15]} />;
       default:
         return <boxGeometry args={[10, 10, 10]} />;
     }
@@ -116,13 +134,24 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
       case 'pyramid':
         return [pos[0], pos[1] + (p.height as number) / 2, pos[2]];
       case 'helix':
-        return [pos[0], pos[1] + (p.radius as number), pos[2]];
+        return [pos[0], pos[1], pos[2]];
       case 'hole': {
         const hpos = (p.position as Vec3) || [0, 0, 0];
         return [hpos[0], hpos[1] - (p.depth as number) / 2, hpos[2]];
       }
       case 'datum_plane':
         return [0, p.offset || 0, 0];
+      case 'fillet':
+      case 'chamfer':
+      case 'shell':
+      case 'mirror':
+      case 'pattern_linear':
+      case 'pattern_circular':
+      case 'sweep':
+      case 'loft':
+      case 'revolve':
+      case 'extrude':
+        return [pos[0], pos[1] + 5, pos[2]];
       default:
         return [pos[0], pos[1] + 5, pos[2]];
     }
@@ -149,13 +178,11 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
     } else if (selectionMode === 'face' && e.faceIndex !== undefined) {
       onSelect('face', e.faceIndex);
     } else if (selectionMode === 'edge') {
-      // For edges, use the intersection point to find nearest edge
       if (e.faceIndex !== undefined) {
-        onSelect('edge', e.faceIndex % 12); // Approximate edge index
+        onSelect('edge', e.faceIndex % 12);
       }
     } else if (selectionMode === 'vertex') {
-      // For vertices, use intersection point
-      onSelect('vertex', 0); // Simplified
+      onSelect('vertex', 0);
     }
   };
 

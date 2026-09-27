@@ -212,6 +212,58 @@ export default function CommandDialog() {
     }
   }, [dialogOpen]);
 
+  // Show fallback UI for unknown commands
+  if (dialogOpen && !config) {
+    return (
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={closeDialog}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-gray-900 border border-yellow-500/30 rounded-xl p-6 max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h3 className="text-white font-semibold">Command Not Implemented</h3>
+                <p className="text-sm text-gray-400">
+                  The command "<span className="font-mono text-yellow-400">{dialogOpen}</span>" is not yet implemented.
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              This feature is planned for a future release. For now, you can use the implemented commands in the ribbon.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={closeDialog}
+                className="flex-1 px-4 py-2 text-sm bg-white/5 hover:bg-white/10 rounded-lg text-gray-300 transition-colors"
+              >
+                Close
+              </button>
+              <a
+                href="https://github.com/Mayur88888888/chili3d"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg text-white text-center transition-colors"
+              >
+                View on GitHub
+              </a>
+            </div>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
+
   if (!config) return null;
 
   const getValue = (name: string): number | string => {
