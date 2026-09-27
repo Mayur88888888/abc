@@ -18,7 +18,15 @@ interface RibbonCommand {
   label: string;
   icon: string;
   shortcut?: string;
+  implemented?: boolean; // Mark if command is actually implemented
 }
+
+// Commands that have dialog configs and actually work
+const DIALOG_COMMANDS = new Set([
+  'box', 'cylinder', 'sphere', 'cone', 'torus', 'pyramid', 'helix',
+  'extrude', 'revolve', 'fillet', 'chamfer', 'shell', 'hole', 'pipe',
+  'mirror', 'linear_pattern', 'circular_pattern',
+]);
 
 const ribbonTabs: RibbonTab[] = [
   {
@@ -28,36 +36,33 @@ const ribbonTabs: RibbonTab[] = [
       {
         name: 'Primitives',
         commands: [
-          { id: 'box', label: 'Block', icon: '◻️', shortcut: 'B' },
-          { id: 'cylinder', label: 'Cylinder', icon: '⬡', shortcut: 'C' },
-          { id: 'sphere', label: 'Sphere', icon: '⬤' },
-          { id: 'cone', label: 'Cone', icon: '△' },
-          { id: 'torus', label: 'Torus', icon: '◎' },
-          { id: 'pyramid', label: 'Pyramid', icon: '🔺' },
+          { id: 'box', label: 'Block', icon: '◻️', shortcut: 'B', implemented: true },
+          { id: 'cylinder', label: 'Cylinder', icon: '⬡', shortcut: 'C', implemented: true },
+          { id: 'sphere', label: 'Sphere', icon: '⬤', implemented: true },
+          { id: 'cone', label: 'Cone', icon: '△', implemented: true },
+          { id: 'torus', label: 'Torus', icon: '◎', implemented: true },
+          { id: 'pyramid', label: 'Pyramid', icon: '🔺', implemented: true },
         ],
       },
       {
         name: 'Sketch',
         commands: [
-          { id: 'sketch', label: 'Sketch', icon: '✏️' },
-          { id: 'line', label: 'Line', icon: '╱' },
-          { id: 'arc', label: 'Arc', icon: '⌒' },
-          { id: 'circle', label: 'Circle', icon: '○' },
-          { id: 'spline', label: 'Spline', icon: '∿' },
-          { id: 'rectangle', label: 'Rectangle', icon: '▭' },
-          { id: 'ellipse', label: 'Ellipse', icon: '⬯' },
-          { id: 'polygon', label: 'Polygon', icon: '⬠' },
+          { id: 'sketch', label: 'Sketch', icon: '✏️', implemented: true },
+          { id: 'line', label: 'Line', icon: '╱', implemented: false },
+          { id: 'arc', label: 'Arc', icon: '⌒', implemented: false },
+          { id: 'circle', label: 'Circle', icon: '○', implemented: false },
+          { id: 'rectangle', label: 'Rectangle', icon: '▭', implemented: false },
         ],
       },
       {
-        name: 'Feature',
+        name: 'Features',
         commands: [
-          { id: 'extrude', label: 'Extrude', icon: '⬆', shortcut: 'E' },
-          { id: 'revolve', label: 'Revolve', icon: '🔄' },
-          { id: 'sweep', label: 'Sweep', icon: '↗' },
-          { id: 'loft', label: 'Loft', icon: '⤴' },
-          { id: 'pipe', label: 'Pipe', icon: '🔧' },
-          { id: 'helix', label: 'Helix', icon: '🌀' },
+          { id: 'extrude', label: 'Extrude', icon: '⬆', shortcut: 'E', implemented: true },
+          { id: 'revolve', label: 'Revolve', icon: '🔄', implemented: true },
+          { id: 'sweep', label: 'Sweep', icon: '↗', implemented: false },
+          { id: 'loft', label: 'Loft', icon: '⤴', implemented: false },
+          { id: 'pipe', label: 'Pipe', icon: '🔧', shortcut: 'P', implemented: true },
+          { id: 'helix', label: 'Helix', icon: '🌀', implemented: true },
         ],
       },
     ],
@@ -67,84 +72,28 @@ const ribbonTabs: RibbonTab[] = [
     label: 'Modeling',
     groups: [
       {
-        name: 'Boolean',
-        commands: [
-          { id: 'union', label: 'Unite', icon: '⊕' },
-          { id: 'subtract', label: 'Subtract', icon: '⊖' },
-          { id: 'intersect', label: 'Intersect', icon: '⊗' },
-        ],
-      },
-      {
         name: 'Detail',
         commands: [
-          { id: 'fillet', label: 'Fillet', icon: '⌢', shortcut: 'F' },
-          { id: 'chamfer', label: 'Chamfer', icon: '⟋' },
-          { id: 'shell', label: 'Shell', icon: '⊡' },
-          { id: 'draft', label: 'Draft', icon: '⟁' },
-          { id: 'offset', label: 'Offset', icon: '⊞' },
+          { id: 'fillet', label: 'Fillet', icon: '⌢', shortcut: 'F', implemented: true },
+          { id: 'chamfer', label: 'Chamfer', icon: '⟋', implemented: true },
+          { id: 'shell', label: 'Shell', icon: '⊡', implemented: true },
+          { id: 'hole', label: 'Hole', icon: '⊙', shortcut: 'H', implemented: true },
         ],
       },
       {
         name: 'Pattern',
         commands: [
-          { id: 'linear_pattern', label: 'Linear', icon: '⋮' },
-          { id: 'circular_pattern', label: 'Circular', icon: '⟳' },
-          { id: 'mirror', label: 'Mirror', icon: '↔' },
+          { id: 'linear_pattern', label: 'Linear', icon: '⋮', implemented: true },
+          { id: 'circular_pattern', label: 'Circular', icon: '⟳', implemented: true },
+          { id: 'mirror', label: 'Mirror', icon: '↔', implemented: true },
         ],
       },
       {
-        name: 'Hole',
+        name: 'Boolean',
         commands: [
-          { id: 'hole', label: 'Hole', icon: '⊙', shortcut: 'H' },
-          { id: 'thread', label: 'Thread', icon: '🔩' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'surface',
-    label: 'Surface',
-    groups: [
-      {
-        name: 'Create',
-        commands: [
-          { id: 'extrude_surf', label: 'Extrude', icon: '⬆' },
-          { id: 'revolve_surf', label: 'Revolve', icon: '🔄' },
-          { id: 'sweep_surf', label: 'Sweep', icon: '↗' },
-          { id: 'n_surface', label: 'N-Sided', icon: '⬡' },
-          { id: 'fillet_surf', label: 'Fillet', icon: '⌢' },
-        ],
-      },
-      {
-        name: 'Edit',
-        commands: [
-          { id: 'trim_surf', label: 'Trim', icon: '✂' },
-          { id: 'extend_surf', label: 'Extend', icon: '↔' },
-          { id: 'offset_surf', label: 'Offset', icon: '⊞' },
-          { id: 'sew', label: 'Sew', icon: '🪡' },
-          { id: 'split', label: 'Split', icon: '⫿' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'datum',
-    label: 'Datum/WCS',
-    groups: [
-      {
-        name: 'Datum',
-        commands: [
-          { id: 'datum_plane', label: 'Plane', icon: '▦' },
-          { id: 'datum_axis', label: 'Axis', icon: '┃' },
-          { id: 'datum_point', label: 'Point', icon: '•' },
-          { id: 'datum_csys', label: 'CSYS', icon: '⊹' },
-        ],
-      },
-      {
-        name: 'WCS',
-        commands: [
-          { id: 'wcs_origin', label: 'Origin', icon: '⊕' },
-          { id: 'wcs_orient', label: 'Orient', icon: '🧭' },
+          { id: 'union', label: 'Unite', icon: '⊕', implemented: false },
+          { id: 'subtract', label: 'Subtract', icon: '⊖', implemented: false },
+          { id: 'intersect', label: 'Intersect', icon: '⊗', implemented: false },
         ],
       },
     ],
@@ -154,23 +103,21 @@ const ribbonTabs: RibbonTab[] = [
     label: 'View',
     groups: [
       {
-        name: 'Visualize',
+        name: 'Display',
         commands: [
-          { id: 'shaded', label: 'Shaded', icon: '🎨' },
-          { id: 'wireframe', label: 'Wireframe', icon: '📐' },
-          { id: 'shaded_edges', label: 'With Edges', icon: '🔲' },
-          { id: 'hidden', label: 'Hidden Line', icon: '⬚' },
-          { id: 'raytraced', label: 'Ray Traced', icon: '☀️' },
+          { id: 'shaded', label: 'Shaded', icon: '🎨', implemented: true },
+          { id: 'wireframe', label: 'Wireframe', icon: '📐', implemented: true },
+          { id: 'shaded_edges', label: 'With Edges', icon: '🔲', implemented: true },
+          { id: 'hidden', label: 'Hidden Line', icon: '⬚', implemented: true },
         ],
       },
       {
-        name: 'Layout',
+        name: 'Camera',
         commands: [
-          { id: 'fit', label: 'Fit', icon: '⊡', shortcut: 'F8' },
-          { id: 'top', label: 'Top', icon: '⬆' },
-          { id: 'front', label: 'Front', icon: '⬛' },
-          { id: 'right', label: 'Right', icon: '▶' },
-          { id: 'iso', label: 'Isometric', icon: '◇', shortcut: 'F6' },
+          { id: 'fit', label: 'Fit', icon: '⊡', implemented: false },
+          { id: 'top', label: 'Top', icon: '⬆', implemented: false },
+          { id: 'front', label: 'Front', icon: '⬛', implemented: false },
+          { id: 'iso', label: 'Isometric', icon: '◇', implemented: false },
         ],
       },
     ],
@@ -180,28 +127,10 @@ const ribbonTabs: RibbonTab[] = [
     label: 'Tools',
     groups: [
       {
-        name: 'Inspect',
+        name: 'Measure',
         commands: [
-          { id: 'measure_dist', label: 'Distance', icon: '📏' },
-          { id: 'measure_angle', label: 'Angle', icon: '📐' },
-          { id: 'measure_area', label: 'Area', icon: '⬜' },
-          { id: 'measure_vol', label: 'Volume', icon: '📦' },
-        ],
-      },
-      {
-        name: 'Expression',
-        commands: [
-          { id: 'expressions', label: 'Expressions', icon: 'fx' },
-          { id: 'parameters', label: 'Parameters', icon: '⚙' },
-        ],
-      },
-      {
-        name: 'Modify',
-        commands: [
-          { id: 'move', label: 'Move', icon: '✥' },
-          { id: 'rotate_mod', label: 'Rotate', icon: '🔃' },
-          { id: 'simplify', label: 'Simplify', icon: '◽' },
-          { id: 'repair', label: 'Repair', icon: '🔧' },
+          { id: 'measure_dist', label: 'Distance', icon: '📏', implemented: false },
+          { id: 'measure_angle', label: 'Angle', icon: '📐', implemented: false },
         ],
       },
     ],
@@ -216,113 +145,42 @@ export default function Ribbon() {
   const startSketch = useCADStore(s => s.startSketch);
   const undo = useCADStore(s => s.undo);
   const redo = useCADStore(s => s.redo);
+  const setStatusMessage = useCADStore(s => s.setStatusMessage);
 
-  const handleCommand = (cmdId: string) => {
-    // Commands that open dialogs (ONLY these have dialog configs)
-    const dialogCommands = [
-      'box', 'cylinder', 'sphere', 'cone', 'torus', 'pyramid', 'helix',
-      'extrude', 'revolve', 'fillet', 'chamfer', 'shell', 'hole', 'pipe',
-      'mirror', 'linear_pattern', 'circular_pattern',
-    ];
-    
-    if (dialogCommands.includes(cmdId)) {
+  const handleCommand = (cmdId: string, implemented: boolean) => {
+    // If not implemented, show status message
+    if (!implemented) {
+      setStatusMessage(`"${cmdId}" is not implemented yet`);
+      return;
+    }
+
+    // Dialog commands - only these have configs
+    if (DIALOG_COMMANDS.has(cmdId)) {
       openDialog(cmdId);
       return;
     }
-    
+
     // View mode commands
     const viewModeMap: Record<string, any> = {
       'shaded': 'shaded',
       'wireframe': 'wireframe',
       'shaded_edges': 'shaded_with_edges',
       'hidden': 'hidden_line',
-      'raytraced': 'raytraced',
     };
     if (viewModeMap[cmdId]) {
       setViewMode(viewModeMap[cmdId]);
       return;
     }
-    
+
     // Sketch command
     if (cmdId === 'sketch') {
       startSketch('XY');
+      setStatusMessage('Sketch mode activated - select a plane');
       return;
     }
-    
-    // Camera/view commands (for now, show feedback)
-    const cameraCommands = ['fit', 'top', 'front', 'right', 'iso'];
-    if (cameraCommands.includes(cmdId)) {
-      // TODO: Implement camera presets
-      console.log(`Camera command: ${cmdId}`);
-      return;
-    }
-    
-    // Boolean operations (require selection)
-    const booleanCommands = ['union', 'subtract', 'intersect'];
-    if (booleanCommands.includes(cmdId)) {
-      // TODO: Implement boolean operations
-      console.log(`Boolean operation: ${cmdId}`);
-      return;
-    }
-    
-    // Detail operations
-    const detailCommands = ['draft', 'offset', 'thread'];
-    if (detailCommands.includes(cmdId)) {
-      // TODO: Implement detail operations
-      console.log(`Detail operation: ${cmdId}`);
-      return;
-    }
-    
-    // Measurement tools
-    const measureCommands = ['measure_dist', 'measure_angle', 'measure_area', 'measure_vol'];
-    if (measureCommands.includes(cmdId)) {
-      // TODO: Implement measurement tools
-      console.log(`Measurement: ${cmdId}`);
-      return;
-    }
-    
-    // Expression/parameter tools
-    const toolCommands = ['expressions', 'parameters'];
-    if (toolCommands.includes(cmdId)) {
-      // TODO: Implement expression editor
-      console.log(`Tool: ${cmdId}`);
-      return;
-    }
-    
-    // Modify operations
-    const modifyCommands = ['move', 'rotate_mod', 'simplify', 'repair'];
-    if (modifyCommands.includes(cmdId)) {
-      // TODO: Implement modify operations
-      console.log(`Modify: ${cmdId}`);
-      return;
-    }
-    
-    // Sketch tools (2D drawing)
-    const sketchTools = ['line', 'arc', 'circle', 'spline', 'rectangle', 'ellipse', 'polygon'];
-    if (sketchTools.includes(cmdId)) {
-      // TODO: Implement sketch tools
-      console.log(`Sketch tool: ${cmdId}`);
-      return;
-    }
-    
-    // Datum/WCS
-    const datumCommands = ['datum_plane', 'datum_axis', 'datum_point', 'datum_csys', 'wcs_origin', 'wcs_orient'];
-    if (datumCommands.includes(cmdId)) {
-      // TODO: Implement datum creation
-      console.log(`Datum: ${cmdId}`);
-      return;
-    }
-    
-    // Surface operations
-    const surfaceCommands = ['extrude_surf', 'revolve_surf', 'sweep_surf', 'n_surface', 'fillet_surf', 'trim_surf', 'extend_surf', 'offset_surf', 'sew', 'split'];
-    if (surfaceCommands.includes(cmdId)) {
-      // TODO: Implement surface operations
-      console.log(`Surface: ${cmdId}`);
-      return;
-    }
-    
-    // Unknown command - log for debugging
-    console.warn(`Unknown command: ${cmdId}`);
+
+    // Unknown command
+    setStatusMessage(`Command "${cmdId}" not recognized`);
   };
 
   const currentTab = ribbonTabs.find(t => t.id === activeTab);
@@ -376,14 +234,21 @@ export default function Ribbon() {
                   {group.commands.map((cmd) => (
                     <div key={cmd.id} className="relative">
                       <button
-                        onClick={() => handleCommand(cmd.id)}
+                        onClick={() => handleCommand(cmd.id, cmd.implemented !== false)}
                         onMouseEnter={() => setHoveredCmd(cmd.id)}
                         onMouseLeave={() => setHoveredCmd(null)}
-                        className="flex flex-col items-center justify-center w-12 h-12 rounded-md hover:bg-white/5 active:bg-white/10 transition-all group"
-                        title={`${cmd.label}${cmd.shortcut ? ` (${cmd.shortcut})` : ''}`}
+                        disabled={cmd.implemented === false}
+                        className={`flex flex-col items-center justify-center w-12 h-12 rounded-md transition-all group ${
+                          cmd.implemented === false
+                            ? 'opacity-30 cursor-not-allowed'
+                            : 'hover:bg-white/5 active:bg-white/10'
+                        }`}
+                        title={`${cmd.label}${cmd.shortcut ? ` (${cmd.shortcut})` : ''}${cmd.implemented === false ? ' - Not Implemented' : ''}`}
                       >
                         <span className="text-base mb-0">{cmd.icon}</span>
-                        <span className="text-[8px] text-gray-400 group-hover:text-white leading-tight text-center">
+                        <span className={`text-[8px] leading-tight text-center ${
+                          cmd.implemented === false ? 'text-gray-600' : 'text-gray-400 group-hover:text-white'
+                        }`}>
                           {cmd.label}
                         </span>
                       </button>
@@ -392,6 +257,9 @@ export default function Ribbon() {
                           {cmd.label}
                           {cmd.shortcut && (
                             <span className="ml-2 text-gray-500">({cmd.shortcut})</span>
+                          )}
+                          {cmd.implemented === false && (
+                            <span className="ml-2 text-yellow-500 text-[10px]">(Not Implemented)</span>
                           )}
                           <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-800 border-r border-b border-white/10 rotate-45 -mt-1" />
                         </div>
