@@ -1,66 +1,51 @@
-import { useRef, useMemo, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Html, Line, Edges } from '@react-three/drei';
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Html, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { useCADStore } from '../store/cadStore';
 import type { Feature, Vec3 } from '../lib/cadEngine';
 
-// Sub-shape types for selection
-type SubShapeType = 'face' | 'edge' | 'vertex';
-
-interface SubShapeSelection {
-  featureId: string;
-  type: SubShapeType;
-  index: number;
-}
-
-// Map Three.js face index to logical face of primitive
-function getLogicalFaceIndex(featureType: string, faceIndex: number): number {
+// Face names for different primitive types
+function getFaceInfo(featureType: string, faceIndex: number): { name: string; color: string } {
+  const defaultInfo = { name: `Face ${faceIndex}`, color: '#06b6d4' };
+  
   switch (featureType) {
     case 'box':
-      // Box has 12 triangles → 6 faces (2 triangles per face)
-      return Math.floor(faceIndex / 2);
+      // BoxGeometry has 12 triangles = 6 faces (2 triangles per face)
+      const boxFaces = ['Right (+X)', 'Left (-X)', 'Top (+Y)', 'Bottom (-Y)', 'Front (+Z)', 'Back (-Z)'];
+      const boxFaceIdx = Math.floor(faceIndex / 2);
+      return { name: boxFaces[boxFaceIdx] || defaultInfo.name, color: '#06b6d4' };
+    
     case 'cylinder':
     case 'cone':
-      // Simplified: side=0, top=1, bottom=2
-      // This is approximate - real implementation would check vertex positions
-      if (faceIndex < 32) return 0; // side
-      if (faceIndex < 48) return 1; // top cap
-      return 2; // bottom cap
+      // Cylinder has: side triangles, top cap, bottom cap
+      if (faceIndex < 64) return { name: 'Cylindrical Face', color: '#06b6d4' };
+      if (faceIndex < 96) return { name: 'Top Cap', color: '#10b981' };
+      return { name: 'Bottom Cap', color: '#f59e0b' };
+    
     case 'sphere':
-      return 0; // entire sphere is one face
+      return { name: 'Spherical Face', color: '#06b6d4' };
+    
     case 'torus':
-      return 0; // entire torus is one face
+      return { name: 'Toroidal Face', color: '#06b6d4' };
+    
     default:
-      return 0;
+      return defaultInfo;
   }
 }
 
-// Face names for display
-function getFaceName(featureType: string, faceIndex: number): string {
-  if (featureType === 'box') {
-    const names = ['Right (+X)', 'Left (-X)', 'Top (+Y)', 'Bottom (-Y)', 'Front (+Z)', 'Back (-Z)'];
-    return names[faceIndex] || `Face ${faceIndex}`;
-  }
-  if (featureType === 'cylinder' || featureType === 'cone') {
-    const names = ['Cylindrical Face', 'Top Cap', 'Bottom Cap'];
-    return names[faceIndex] || `Face ${faceIndex}`;
-  }
-  return `Face ${faceIndex}`;
-}
-
-// Feature renderer with sub-shape selection
+// Feature renderer with proper sub-shape selection
 function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, selectionMode }: {
   feature: Feature;
   isSelected: boolean;
   isHovered: boolean;
-  onSelect: (subShape?: SubShapeSelection) => void;
-  onHover: (hovered: boolean, subShape?: SubShapeSelection) => void;
+  onSelect: (subShapeType?: string, subShapeIndex?: number) => void;
+  onHover: (hovered: boolean, subShapeType?: string, subShapeIndex?: number) => void;
   selectionMode: 'body' | 'face' | 'edge' | 'vertex';
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const viewMode = useCADStore(s => s.viewMode);
-  const [hoveredFace, setHoveredFace] = useState<number | null>(null);
+  const [hoveredFaceIdx, setHoveredFaceIdx] = useState<number | null>(null);
 
   if (!feature.visible || feature.suppressed) return null;
 
@@ -81,7 +66,7 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
         return <torusGeometry args={[p.majorRadius, p.minorRadius, 16, 48]} />;
       case 'pyramid': {
         const sides = p.sides || 4;
-        return <cylinderGeometry args={[0, p.baseSize / 2, p.height, sides]} />;
+        return <cylinderGeometry args={[0.01, p.baseSize / 2, p.height, sides]} />;
       }
       case 'helix': {
         const q = Math.round(p.turns || 3);
@@ -133,9 +118,12 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
     return [0, 0, 0];
   };
 
-  const baseColor = isSelected ? '#8b5cf6' : '#64748b';
-  const isWireframe = viewMode === 'wireframe';
-  const showEdges = viewMode === 'shaded_with_edges';
+  // Determine color based on selection state and hover
+  const getColor = () => {
+    if (isSelected) return '#8b5cf6'; // Purple for selected
+    if (isHovered) return '#06b6d4'; // Cyan for hovered
+    return '#64748b'; // Default gray
+  };
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -143,21 +131,15 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
     if (selectionMode === 'body') {
       onSelect();
     } else if (selectionMode === 'face' && e.faceIndex !== undefined) {
-      const logicalFace = getLogicalFaceIndex(feature.type, e.faceIndex);
-      onSelect({ featureId: feature.id, type: 'face', index: logicalFace });
+      onSelect('face', e.faceIndex);
     } else if (selectionMode === 'edge') {
-      // For edge mode, select nearest edge based on intersection point
-      // Simplified: use face index to determine edge region
+      // For edges, use the intersection point to find nearest edge
       if (e.faceIndex !== undefined) {
-        const edgeIndex = e.faceIndex % 4; // Approximate edge selection
-        onSelect({ featureId: feature.id, type: 'edge', index: edgeIndex });
+        onSelect('edge', e.faceIndex % 12); // Approximate edge index
       }
     } else if (selectionMode === 'vertex') {
-      // For vertex mode, select nearest vertex
-      if (e.point) {
-        const vertexIndex = Math.floor(Math.random() * 8); // Simplified
-        onSelect({ featureId: feature.id, type: 'vertex', index: vertexIndex });
-      }
+      // For vertices, use intersection point
+      onSelect('vertex', 0); // Simplified
     }
   };
 
@@ -165,19 +147,21 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
     e.stopPropagation();
     
     if (selectionMode === 'face' && e.faceIndex !== undefined) {
-      const logicalFace = getLogicalFaceIndex(feature.type, e.faceIndex);
-      setHoveredFace(logicalFace);
-      onHover(true, { featureId: feature.id, type: 'face', index: logicalFace });
+      setHoveredFaceIdx(e.faceIndex);
+      onHover(true, 'face', e.faceIndex);
     } else {
-      setHoveredFace(null);
+      setHoveredFaceIdx(null);
       onHover(true);
     }
   };
 
   const handlePointerOut = () => {
-    setHoveredFace(null);
+    setHoveredFaceIdx(null);
     onHover(false);
   };
+
+  const isWireframe = viewMode === 'wireframe';
+  const showEdges = viewMode === 'shaded_with_edges' || selectionMode === 'edge';
 
   return (
     <group>
@@ -194,7 +178,7 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
       >
         {getGeometry()}
         <meshStandardMaterial
-          color={isHovered ? '#06b6d4' : baseColor}
+          color={getColor()}
           metalness={0.3}
           roughness={0.6}
           transparent={isWireframe || feature.type === 'datum_plane'}
@@ -205,23 +189,15 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
       </mesh>
 
       {/* Edge wireframe overlay */}
-      {(showEdges || selectionMode === 'edge') && feature.type !== 'datum_plane' && (
+      {showEdges && feature.type !== 'datum_plane' && (
         <mesh position={getPosition()} rotation={getRotation()}>
           {getGeometry()}
           <meshBasicMaterial 
             color={selectionMode === 'edge' ? '#06b6d4' : '#1e293b'} 
             wireframe 
             transparent 
-            opacity={selectionMode === 'edge' ? 0.6 : 0.15} 
+            opacity={selectionMode === 'edge' ? 0.4 : 0.15} 
           />
-        </mesh>
-      )}
-
-      {/* Vertex points overlay */}
-      {selectionMode === 'vertex' && feature.type !== 'datum_plane' && (
-        <mesh position={getPosition()} rotation={getRotation()}>
-          <sphereGeometry args={[0.5, 8, 8]} />
-          <meshBasicMaterial color="#fbbf24" />
         </mesh>
       )}
 
@@ -230,6 +206,14 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
         <mesh position={getPosition()} rotation={getRotation()}>
           <cylinderGeometry args={[p.innerRadius, p.innerRadius, p.height + 0.1, 32]} />
           <meshStandardMaterial color="#0f172a" metalness={0.5} roughness={0.3} />
+        </mesh>
+      )}
+
+      {/* Selection highlight outline */}
+      {isSelected && (
+        <mesh position={getPosition()} rotation={getRotation()}>
+          {getGeometry()}
+          <meshBasicMaterial color="#8b5cf6" wireframe transparent opacity={0.3} />
         </mesh>
       )}
     </group>
@@ -294,28 +278,26 @@ function SceneContent() {
   const selectionMode = useCADStore(s => s.selectionMode);
   const setStatusMessage = useCADStore(s => s.setStatusMessage);
 
-  const handleSelect = (featureId: string, subShape?: SubShapeSelection) => {
-    if (subShape) {
-      // Sub-shape selection
-      selectFeature(featureId);
+  const handleSelect = (featureId: string, subShapeType?: string, subShapeIndex?: number) => {
+    selectFeature(featureId);
+    
+    if (subShapeType && subShapeIndex !== undefined) {
       const feature = features.find(f => f.id === featureId);
       if (feature) {
-        const faceName = getFaceName(feature.type, subShape.index);
-        setStatusMessage(`Selected ${subShape.type} ${subShape.index}: ${faceName}`);
+        const faceInfo = getFaceInfo(feature.type, subShapeIndex);
+        setStatusMessage(`Selected ${subShapeType} ${subShapeIndex}: ${faceInfo.name}`);
       }
-    } else {
-      // Body selection
-      selectFeature(featureId);
     }
   };
 
-  const handleHover = (featureId: string, hovered: boolean, subShape?: SubShapeSelection) => {
+  const handleHover = (featureId: string, hovered: boolean, subShapeType?: string, subShapeIndex?: number) => {
     setHoveredFeature(hovered ? featureId : null);
-    if (hovered && subShape) {
+    
+    if (hovered && subShapeType && subShapeIndex !== undefined) {
       const feature = features.find(f => f.id === featureId);
       if (feature) {
-        const faceName = getFaceName(feature.type, subShape.index);
-        setStatusMessage(`Hover: ${subShape.type} ${subShape.index} - ${faceName}`);
+        const faceInfo = getFaceInfo(feature.type, subShapeIndex);
+        setStatusMessage(`Hover: ${subShapeType} ${subShapeIndex} - ${faceInfo.name}`);
       }
     }
   };
@@ -361,8 +343,8 @@ function SceneContent() {
           feature={feature}
           isSelected={selectedFeatures.includes(feature.id)}
           isHovered={hoveredFeature === feature.id}
-          onSelect={(subShape) => handleSelect(feature.id, subShape)}
-          onHover={(hovered, subShape) => handleHover(feature.id, hovered, subShape)}
+          onSelect={(type, idx) => handleSelect(feature.id, type, idx)}
+          onHover={(hovered, type, idx) => handleHover(feature.id, hovered, type, idx)}
           selectionMode={selectionMode}
         />
       ))}
@@ -380,11 +362,6 @@ function SceneContent() {
         dampingFactor={0.05}
         minDistance={5}
         maxDistance={500}
-        mouseButtons={{
-          LEFT: THREE.MOUSE.ROTATE,
-          MIDDLE: THREE.MOUSE.PAN,
-          RIGHT: THREE.MOUSE.PAN,
-        }}
       />
 
       {/* Gizmo */}
@@ -405,7 +382,7 @@ export default function CADViewport() {
     <div className="w-full h-full relative" onContextMenu={(e) => e.preventDefault()}>
       <Canvas
         shadows
-        camera={{ position: [60, 40, 60], fov: 50, near: 0.1, far: 2000 }}
+        camera={{ position: [80, 60, 80], fov: 50, near: 0.1, far: 2000 }}
         onPointerMissed={() => clearSelection()}
         gl={{ antialias: true, alpha: false }}
         style={{ background: '#0f172a' }}

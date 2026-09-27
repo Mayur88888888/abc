@@ -244,17 +244,17 @@ export default function Ribbon() {
 
   return (
     <div className="bg-gray-900/95 backdrop-blur-sm border-b border-white/5 select-none">
-      {/* Tab bar */}
-      <div className="flex items-center gap-0 px-2">
-        <button className="px-3 py-1.5 text-xs font-bold text-purple-400 hover:bg-purple-500/10 rounded-t transition-colors">
-          ☰ MENU
+      {/* Tab bar - COMPACT */}
+      <div className="flex items-center gap-0 px-2 h-8">
+        <button className="px-2 py-1 text-[10px] font-bold text-purple-400 hover:bg-purple-500/10 rounded transition-colors">
+          ☰
         </button>
-        <div className="w-px h-4 bg-white/10 mx-1" />
+        <div className="w-px h-3 bg-white/10 mx-1" />
         {ribbonTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-1.5 text-xs font-medium rounded-t transition-all ${
+            className={`px-3 py-1 text-[11px] font-medium rounded-t transition-all ${
               activeTab === tab.id
                 ? 'bg-gray-800/80 text-white border-t border-x border-white/10'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -265,20 +265,16 @@ export default function Ribbon() {
         ))}
         {/* Quick access on right */}
         <div className="ml-auto flex items-center gap-1">
-          <button onClick={undo} className="p-1.5 text-gray-500 hover:text-white hover:bg-white/5 rounded transition-colors" title="Undo (Ctrl+Z)">
+          <button onClick={undo} className="p-1 text-gray-500 hover:text-white hover:bg-white/5 rounded transition-colors text-xs" title="Undo (Ctrl+Z)">
             ↩
           </button>
-          <button onClick={redo} className="p-1.5 text-gray-500 hover:text-white hover:bg-white/5 rounded transition-colors" title="Redo (Ctrl+Y)">
+          <button onClick={redo} className="p-1 text-gray-500 hover:text-white hover:bg-white/5 rounded transition-colors text-xs" title="Redo (Ctrl+Y)">
             ↪
-          </button>
-          <div className="w-px h-4 bg-white/10 mx-1" />
-          <button className="p-1.5 text-gray-500 hover:text-white hover:bg-white/5 rounded transition-colors" title="Save">
-            💾
           </button>
         </div>
       </div>
 
-      {/* Ribbon content */}
+      {/* Ribbon content - COMPACT */}
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
@@ -286,23 +282,23 @@ export default function Ribbon() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -5 }}
           transition={{ duration: 0.15 }}
-          className="flex items-stretch gap-0 px-2 py-2 min-h-[80px]"
+          className="flex items-stretch gap-0 px-2 py-1 min-h-[60px]"
         >
           {currentTab?.groups.map((group, gi) => (
             <div key={group.name} className="flex items-start gap-0">
-              <div className="flex flex-col items-center gap-1 px-2">
-                <div className="flex gap-1">
+              <div className="flex flex-col items-center gap-0.5 px-1">
+                <div className="flex gap-0.5">
                   {group.commands.map((cmd) => (
                     <div key={cmd.id} className="relative">
                       <button
                         onClick={() => handleCommand(cmd.id)}
                         onMouseEnter={() => setHoveredCmd(cmd.id)}
                         onMouseLeave={() => setHoveredCmd(null)}
-                        className="flex flex-col items-center justify-center w-14 h-14 rounded-lg hover:bg-white/5 active:bg-white/10 transition-all group"
+                        className="flex flex-col items-center justify-center w-12 h-12 rounded-md hover:bg-white/5 active:bg-white/10 transition-all group"
                         title={`${cmd.label}${cmd.shortcut ? ` (${cmd.shortcut})` : ''}`}
                       >
-                        <span className="text-xl mb-0.5">{cmd.icon}</span>
-                        <span className="text-[9px] text-gray-400 group-hover:text-white leading-tight text-center">
+                        <span className="text-base mb-0">{cmd.icon}</span>
+                        <span className="text-[8px] text-gray-400 group-hover:text-white leading-tight text-center">
                           {cmd.label}
                         </span>
                       </button>

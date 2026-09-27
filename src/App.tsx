@@ -76,15 +76,15 @@ export default function App() {
   useEffect(() => {
     const state = useCADStore.getState();
     if (state.model.features.length === 0) {
-      // Space features out so they don't overlap
-      addBox(60, 40, 50, [0, 0, 0]);
-      addCylinder(15, 60, [-50, 0, 0]);
-      addSphere(20, [50, 0, 0]);
-      addCone(20, 8, 45, [0, 0, -50]);
-      addTorus(25, 8, [0, 0, 50]);
-      addPyramid(30, 40, 4, [-50, 0, -50]);
-      addHelix(15, 8, 4, 2, [50, 0, -50]);
-      addPipe(18, 12, 50, [50, 0, 50]);
+      // Space features out in a grid pattern so they don't overlap
+      addBox(40, 30, 35, [0, 0, 0]);
+      addCylinder(12, 50, [-60, 0, 0]);
+      addSphere(18, [60, 0, 0]);
+      addCone(18, 6, 40, [0, 0, -60]);
+      addTorus(22, 7, [0, 0, 60]);
+      addPyramid(25, 35, 4, [-60, 0, -60]);
+      addHelix(12, 7, 4, 2, [60, 0, -60]);
+      addPipe(15, 10, 45, [60, 0, 60]);
     }
   }, []);
 
