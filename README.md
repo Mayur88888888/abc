@@ -1,4 +1,4 @@
-# WebCAD Pro - Browser-Based 3D CAD System
+# WebCAD Pro
 
 A professional-grade 3D CAD application running entirely in the browser, built with React, TypeScript, Three.js, and Zustand.
 
@@ -44,10 +44,6 @@ A professional-grade 3D CAD application running entirely in the browser, built w
 ### Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/Mayur88888888/chili3d.git
-cd chili3d
-
 # Install dependencies
 npm install
 
@@ -190,10 +186,10 @@ This project is open source and available under the MIT License.
 
 ## 🙏 Acknowledgments
 
-- [Chili3D](https://github.com/Mayur88888888/chili3d) - Inspiration for browser-based CAD
 - [Three.js](https://threejs.org/) - 3D rendering engine
 - [React Three Fiber](https://docs.pmnd.rs/react-three-fiber) - React renderer for Three.js
 - [Zustand](https://github.com/pmndrs/zustand) - State management
+- [Framer Motion](https://www.framer.com/motion/) - Animation library
 
 ## 📧 Contact
 
@@ -202,3 +198,19 @@ For questions or feedback, please open an issue on GitHub.
 ---
 
 **Made with ❤️ for the CAD community**
+
+## 🚀 Deploy Your Own
+
+Want to create your own repository? Here's how:
+
+```bash
+# Create a new repository on GitHub, then:
+git init
+git add .
+git commit -m "Initial commit: WebCAD Pro"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+git push -u origin main
+```
+
+This is a completely standalone application with no dependencies on other repositories.
