@@ -105,7 +105,7 @@ echo  [INFO] Press Ctrl+C to stop the server.
 echo.
 
 :: Open browser after a short delay
-start "" cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:5173"
+start "" cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:3000"
 
 call npm run dev
 goto exit

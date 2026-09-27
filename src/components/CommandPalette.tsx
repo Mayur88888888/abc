@@ -90,14 +90,30 @@ export default function CommandPalette() {
   }, [isOpen, togglePalette]);
 
   const executeCommand = (cmd: Command) => {
+    // Only open dialog for commands that HAVE a dialog config
+    const dialogCommands = [
+      'box', 'cylinder', 'sphere', 'cone', 'torus', 'pyramid', 'helix',
+      'extrude', 'revolve', 'fillet', 'chamfer', 'shell', 'hole', 'pipe',
+      'mirror', 'linear_pattern', 'circular_pattern',
+    ];
+    
     switch (cmd.id) {
-      case 'undo': undo(); break;
-      case 'redo': redo(); break;
+      case 'undo': 
+        undo(); 
+        break;
+      case 'redo': 
+        redo(); 
+        break;
       case 'delete':
         selectedFeatures.forEach(id => deleteFeature(id));
         break;
       default:
-        openDialog(cmd.id);
+        if (dialogCommands.includes(cmd.id)) {
+          openDialog(cmd.id);
+        } else {
+          // Command exists but has no dialog - log for now
+          console.log(`Command executed: ${cmd.label} (${cmd.id})`);
+        }
         break;
     }
     togglePalette();

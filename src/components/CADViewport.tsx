@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Html, Line } from '@react-three/drei';
 import * as THREE from 'three';
@@ -45,7 +45,7 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const viewMode = useCADStore(s => s.viewMode);
-  const [hoveredFaceIdx, setHoveredFaceIdx] = useState<number | null>(null);
+  // Removed hoveredFaceIdx state - not used in render, was causing per-frame re-renders
 
   if (!feature.visible || feature.suppressed) return null;
 
@@ -66,11 +66,27 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
         return <torusGeometry args={[p.majorRadius, p.minorRadius, 16, 48]} />;
       case 'pyramid': {
         const sides = p.sides || 4;
-        return <cylinderGeometry args={[0.01, p.baseSize / 2, p.height, sides]} />;
+        // Use cone geometry with very small top radius to simulate pyramid
+        // For a true pyramid, we'd need custom geometry, but this is close enough
+        return <coneGeometry args={[p.baseSize / 2, p.height, sides]} />;
       }
       case 'helix': {
-        const q = Math.round(p.turns || 3);
-        return <torusKnotGeometry args={[p.radius, p.wireRadius || 2, 64, 8, 2, q]} />;
+        const turns = p.turns || 3;
+        const radius = p.radius || 10;
+        const wireRadius = p.wireRadius || 1;
+        // Create helix using tube geometry along a helix curve
+        const points: THREE.Vector3[] = [];
+        const segments = turns * 32;
+        for (let i = 0; i <= segments; i++) {
+          const t = i / segments;
+          const angle = t * turns * Math.PI * 2;
+          const x = Math.cos(angle) * radius;
+          const y = t * turns * 10; // Height increases with turns
+          const z = Math.sin(angle) * radius;
+          points.push(new THREE.Vector3(x, y, z));
+        }
+        const curve = new THREE.CatmullRomCurve3(points);
+        return <tubeGeometry args={[curve, segments, wireRadius, 8, false]} />;
       }
       case 'pipe':
         return <cylinderGeometry args={[p.outerRadius, p.outerRadius, p.height, 32]} />;
@@ -147,16 +163,13 @@ function FeatureMesh({ feature, isSelected, isHovered, onSelect, onHover, select
     e.stopPropagation();
     
     if (selectionMode === 'face' && e.faceIndex !== undefined) {
-      setHoveredFaceIdx(e.faceIndex);
       onHover(true, 'face', e.faceIndex);
     } else {
-      setHoveredFaceIdx(null);
       onHover(true);
     }
   };
 
   const handlePointerOut = () => {
-    setHoveredFaceIdx(null);
     onHover(false);
   };
 
@@ -243,22 +256,38 @@ function AxesHelper() {
   );
 }
 
-// Cursor tracker
+// Cursor tracker - throttled to avoid 60fps re-renders
 function CursorTracker() {
   const { camera, raycaster, pointer } = useThree();
   const setCursorPosition = useCADStore(s => s.setCursorPosition);
   const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+  const lastUpdate = useRef(0);
+  const lastPosition = useRef<[number, number, number]>([0, 0, 0]);
 
   useFrame(() => {
+    const now = Date.now();
+    // Throttle to 10Hz (100ms) instead of 60Hz
+    if (now - lastUpdate.current < 100) return;
+    lastUpdate.current = now;
+
     raycaster.setFromCamera(pointer, camera);
     const intersect = new THREE.Vector3();
-    raycaster.ray.intersectPlane(plane.current, intersect);
-    if (intersect) {
-      setCursorPosition([
+    const result = raycaster.ray.intersectPlane(plane.current, intersect);
+    
+    if (result) {
+      const newPos: [number, number, number] = [
         Math.round(intersect.x * 10) / 10,
         Math.round(intersect.y * 10) / 10,
         Math.round(intersect.z * 10) / 10,
-      ]);
+      ];
+      
+      // Only update if position actually changed
+      if (newPos[0] !== lastPosition.current[0] || 
+          newPos[1] !== lastPosition.current[1] || 
+          newPos[2] !== lastPosition.current[2]) {
+        lastPosition.current = newPos;
+        setCursorPosition(newPos);
+      }
     }
   });
 

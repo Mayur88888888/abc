@@ -51,7 +51,7 @@ npm install
 npm run dev
 ```
 
-The app will open at **http://localhost:5173**
+The app will open at **http://localhost:3000**
 
 ### Windows Users
 Just double-click `start.bat` for an interactive menu!
