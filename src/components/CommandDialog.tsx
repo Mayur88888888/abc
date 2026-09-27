@@ -216,57 +216,63 @@ export default function CommandDialog() {
   };
 
   const handleSubmit = () => {
+    // Generate random position offset to avoid overlapping
+    const offsetX = (Math.random() - 0.5) * 100;
+    const offsetY = 0;
+    const offsetZ = (Math.random() - 0.5) * 100;
+    const position: [number, number, number] = [offsetX, offsetY, offsetZ];
+
     switch (dialogOpen) {
       case 'box':
-        addBox(getNum('width'), getNum('height'), getNum('depth'));
+        addBox(getNum('width'), getNum('height'), getNum('depth'), position);
         break;
       case 'cylinder':
-        addCylinder(getNum('radius'), getNum('height'));
+        addCylinder(getNum('radius'), getNum('height'), position);
         break;
       case 'sphere':
-        addSphere(getNum('radius'));
+        addSphere(getNum('radius'), position);
         break;
       case 'cone':
-        addCone(getNum('radius1'), getNum('radius2'), getNum('height'));
+        addCone(getNum('radius1'), getNum('radius2'), getNum('height'), position);
         break;
       case 'torus':
-        addTorus(getNum('majorRadius'), getNum('minorRadius'));
+        addTorus(getNum('majorRadius'), getNum('minorRadius'), position);
         break;
       case 'pyramid':
-        addPyramid(getNum('baseSize'), getNum('height'), getNum('sides'));
+        addPyramid(getNum('baseSize'), getNum('height'), getNum('sides'), position);
         break;
       case 'helix':
-        addHelix(getNum('radius'), getNum('pitch'), getNum('turns'), getNum('wireRadius'));
+        addHelix(getNum('radius'), getNum('pitch'), getNum('turns'), getNum('wireRadius'), position);
         break;
       case 'extrude':
-        addExtrude(getNum('distance'), [0, 1, 0], getNum('taper'));
+        addExtrude(getNum('distance'), [0, 1, 0], getNum('taper'), position);
         break;
       case 'revolve':
-        addRevolve([0, 1, 0], getNum('angle'));
+        addRevolve([0, 1, 0], getNum('angle'), position);
         break;
       case 'fillet':
-        addFillet(getNum('radius'));
+        addFillet(getNum('radius'), position);
         break;
       case 'chamfer':
-        addChamfer(getNum('distance'), getNum('angle'));
+        addChamfer(getNum('distance'), getNum('angle'), position);
         break;
       case 'shell':
-        addShell(getNum('thickness'));
+        addShell(getNum('thickness'), position);
         break;
       case 'hole':
-        addHole([0, 0, 0], getNum('diameter'), getNum('depth'), getValue('holeType') as string);
+        addHole(position, getNum('diameter'), getNum('depth'), getValue('holeType') as string);
         break;
       case 'pipe':
-        addPipe(getNum('outerRadius'), getNum('innerRadius'), getNum('height'));
+        addPipe(getNum('outerRadius'), getNum('innerRadius'), getNum('height'), position);
         break;
       case 'mirror':
-        addMirror(getValue('plane') as string);
+        addMirror(getValue('plane') as string, position);
         break;
       case 'linear_pattern':
-        addLinearPattern([1, 0, 0], getNum('count'), getNum('spacing'));
+        addLinearPattern([1, 0, 0], getNum('count'), getNum('spacing'), position);
         break;
       case 'circular_pattern':
-        addCircularPattern([0, 1, 0], getNum('count'), getNum('angle'));
+        addCircularPattern([0, 1, 0], getNum('count'), getNum('angle'), position);
         break;
     }
     closeDialog();
