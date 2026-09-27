@@ -2,11 +2,14 @@ import { create } from 'zustand';
 import {
   Feature,
   CADModel,
+  Vec3,
   createBoxFeature,
   createCylinderFeature,
   createSphereFeature,
   createConeFeature,
   createTorusFeature,
+  createPyramidFeature,
+  createHelixFeature,
   createExtrudeFeature,
   createRevolveFeature,
   createFilletFeature,
@@ -17,8 +20,9 @@ import {
   createCircularPatternFeature,
   createDatumPlaneFeature,
   createSweepFeature,
+  createPipeFeature,
   createLoftFeature,
-  Vec3,
+  createMirrorFeature,
 } from '../lib/cadEngine';
 
 type ViewMode = 'shaded' | 'wireframe' | 'shaded_with_edges' | 'hidden_line' | 'raytraced';
@@ -64,23 +68,27 @@ interface CADState {
   // Internal
   _saveState: () => void;
   
-  // Actions - Model
-  addBox: (w: number, h: number, d: number) => void;
-  addCylinder: (r: number, h: number) => void;
-  addSphere: (r: number) => void;
-  addCone: (r1: number, r2: number, h: number) => void;
-  addTorus: (R: number, r: number) => void;
-  addExtrude: (profile: string, distance: number, direction: Vec3, taper: number) => void;
-  addRevolve: (profile: string, axis: Vec3, angle: number) => void;
-  addFillet: (edges: string[], radius: number) => void;
-  addChamfer: (edges: string[], distance: number, angle: number) => void;
-  addShell: (thickness: number, openFaces: string[]) => void;
+  // Actions - Model (all support position offset for proper placement)
+  addBox: (w: number, h: number, d: number, pos?: Vec3) => void;
+  addCylinder: (r: number, h: number, pos?: Vec3) => void;
+  addSphere: (r: number, pos?: Vec3) => void;
+  addCone: (r1: number, r2: number, h: number, pos?: Vec3) => void;
+  addTorus: (R: number, r: number, pos?: Vec3) => void;
+  addPyramid: (base: number, h: number, sides: number, pos?: Vec3) => void;
+  addHelix: (r: number, pitch: number, turns: number, wireR: number, pos?: Vec3) => void;
+  addExtrude: (distance: number, direction: Vec3, taper: number, pos?: Vec3) => void;
+  addRevolve: (axis: Vec3, angle: number, pos?: Vec3) => void;
+  addFillet: (radius: number, pos?: Vec3) => void;
+  addChamfer: (distance: number, angle: number, pos?: Vec3) => void;
+  addShell: (thickness: number, pos?: Vec3) => void;
   addHole: (position: Vec3, diameter: number, depth: number, type: string) => void;
-  addLinearPattern: (feature: string, direction: Vec3, count: number, spacing: number) => void;
-  addCircularPattern: (feature: string, axis: Vec3, count: number, angle: number) => void;
+  addLinearPattern: (direction: Vec3, count: number, spacing: number, pos?: Vec3) => void;
+  addCircularPattern: (axis: Vec3, count: number, angle: number, pos?: Vec3) => void;
   addDatumPlane: (offset: number, reference: string) => void;
-  addSweep: (profile: string, path: string) => void;
-  addLoft: (profiles: string[]) => void;
+  addSweep: (pos?: Vec3) => void;
+  addPipe: (outerR: number, innerR: number, h: number, pos?: Vec3) => void;
+  addLoft: (pos?: Vec3) => void;
+  addMirror: (plane: string, pos?: Vec3) => void;
   
   // Actions - Feature management
   deleteFeature: (id: string) => void;
@@ -165,91 +173,109 @@ export const useCADStore = create<CADState>((set, get) => ({
     });
   },
 
-  // Model operations
-  addBox: (w, h, d) => {
+  // Model operations - ALL with position support
+  addBox: (w, h, d, pos) => {
     get()._saveState();
-    const feature = createBoxFeature({ width: w, height: h, depth: d });
+    const feature = createBoxFeature({ width: w, height: h, depth: d, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, feature] },
       statusMessage: `Created Block ${w}×${h}×${d} mm`,
     }));
   },
 
-  addCylinder: (r, h) => {
+  addCylinder: (r, h, pos) => {
     get()._saveState();
-    const feature = createCylinderFeature({ radius: r, height: h });
+    const feature = createCylinderFeature({ radius: r, height: h, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, feature] },
       statusMessage: `Created Cylinder R${r} × H${h} mm`,
     }));
   },
 
-  addSphere: (r) => {
+  addSphere: (r, pos) => {
     get()._saveState();
-    const feature = createSphereFeature({ radius: r });
+    const feature = createSphereFeature({ radius: r, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, feature] },
       statusMessage: `Created Sphere R${r} mm`,
     }));
   },
 
-  addCone: (r1, r2, h) => {
+  addCone: (r1, r2, h, pos) => {
     get()._saveState();
-    const feature = createConeFeature({ radius1: r1, radius2: r2, height: h });
+    const feature = createConeFeature({ radius1: r1, radius2: r2, height: h, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, feature] },
       statusMessage: `Created Cone R${r1}/R${r2} × H${h} mm`,
     }));
   },
 
-  addTorus: (R, r) => {
+  addTorus: (R, r, pos) => {
     get()._saveState();
-    const feature = createTorusFeature({ majorRadius: R, minorRadius: r });
+    const feature = createTorusFeature({ majorRadius: R, minorRadius: r, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, feature] },
       statusMessage: `Created Torus R${R} × r${r} mm`,
     }));
   },
 
-  addExtrude: (profile, distance, direction, taper) => {
+  addPyramid: (base, h, sides, pos) => {
     get()._saveState();
-    const feature = createExtrudeFeature({ profile, distance, direction, taper });
+    const feature = createPyramidFeature({ baseSize: base, height: h, sides, position: pos });
+    set(state => ({
+      model: { ...state.model, features: [...state.model.features, feature] },
+      statusMessage: `Created ${sides}-sided Pyramid H${h} mm`,
+    }));
+  },
+
+  addHelix: (r, pitch, turns, wireR, pos) => {
+    get()._saveState();
+    const feature = createHelixFeature({ radius: r, pitch, turns, wireRadius: wireR, position: pos });
+    set(state => ({
+      model: { ...state.model, features: [...state.model.features, feature] },
+      statusMessage: `Created Helix R${r}, ${turns} turns`,
+    }));
+  },
+
+  addExtrude: (distance, direction, taper, pos) => {
+    get()._saveState();
+    const feature = createExtrudeFeature({ distance, direction, taper, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, feature] },
       statusMessage: `Extruded ${distance} mm`,
     }));
   },
 
-  addRevolve: (profile, axis, angle) => {
+  addRevolve: (axis, angle, pos) => {
     get()._saveState();
-    const feature = createRevolveFeature({ profile, axis, angle });
+    const feature = createRevolveFeature({ axis, angle, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, feature] },
       statusMessage: `Revolved ${angle}°`,
     }));
   },
 
-  addFillet: (edges, radius) => {
+  addFillet: (radius, pos) => {
     get()._saveState();
-    const feature = createFilletFeature({ edges, radius });
+    const feature = createFilletFeature({ radius, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, feature] },
       statusMessage: `Applied Fillet R${radius} mm`,
     }));
   },
 
-  addChamfer: (edges, distance, angle) => {
+  addChamfer: (distance, angle, pos) => {
     get()._saveState();
-    const feature = createChamferFeature({ edges, distance, angle });
+    const feature = createChamferFeature({ distance, angle, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, feature] },
       statusMessage: `Applied Chamfer ${distance}mm × ${angle}°`,
     }));
   },
 
-  addShell: (thickness, openFaces) => {
+  addShell: (thickness, pos) => {
     get()._saveState();
-    const feature = createShellFeature({ thickness, openFaces });
+    const feature = createShellFeature({ thickness, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, feature] },
       statusMessage: `Shell thickness: ${thickness} mm`,
@@ -265,18 +291,18 @@ export const useCADStore = create<CADState>((set, get) => ({
     }));
   },
 
-  addLinearPattern: (feature, direction, count, spacing) => {
+  addLinearPattern: (direction, count, spacing, pos) => {
     get()._saveState();
-    const f = createLinearPatternFeature({ feature, direction, count, spacing });
+    const f = createLinearPatternFeature({ direction, count, spacing, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, f] },
       statusMessage: `Linear pattern: ${count} instances, ${spacing}mm spacing`,
     }));
   },
 
-  addCircularPattern: (feature, axis, count, angle) => {
+  addCircularPattern: (axis, count, angle, pos) => {
     get()._saveState();
-    const f = createCircularPatternFeature({ feature, axis, count, angle });
+    const f = createCircularPatternFeature({ axis, count, angle, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, f] },
       statusMessage: `Circular pattern: ${count} instances, ${angle}°`,
@@ -292,21 +318,39 @@ export const useCADStore = create<CADState>((set, get) => ({
     }));
   },
 
-  addSweep: (profile, path) => {
+  addSweep: (pos) => {
     get()._saveState();
-    const feature = createSweepFeature({ profile, path });
+    const feature = createSweepFeature({ position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, feature] },
       statusMessage: `Created sweep feature`,
     }));
   },
 
-  addLoft: (profiles) => {
+  addPipe: (outerR, innerR, h, pos) => {
     get()._saveState();
-    const feature = createLoftFeature({ profiles });
+    const feature = createPipeFeature({ outerRadius: outerR, innerRadius: innerR, height: h, position: pos });
     set(state => ({
       model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created loft feature with ${profiles.length} sections`,
+      statusMessage: `Created Pipe OR${outerR} IR${innerR} H${h} mm`,
+    }));
+  },
+
+  addLoft: (pos) => {
+    get()._saveState();
+    const feature = createLoftFeature({ position: pos });
+    set(state => ({
+      model: { ...state.model, features: [...state.model.features, feature] },
+      statusMessage: `Created loft feature`,
+    }));
+  },
+
+  addMirror: (plane, pos) => {
+    get()._saveState();
+    const feature = createMirrorFeature({ plane, position: pos });
+    set(state => ({
+      model: { ...state.model, features: [...state.model.features, feature] },
+      statusMessage: `Created mirror on ${plane} plane`,
     }));
   },
 

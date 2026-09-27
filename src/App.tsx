@@ -16,32 +16,55 @@ export default function App() {
   const addBox = useCADStore(s => s.addBox);
   const addCylinder = useCADStore(s => s.addCylinder);
   const addSphere = useCADStore(s => s.addSphere);
+  const addCone = useCADStore(s => s.addCone);
+  const addTorus = useCADStore(s => s.addTorus);
+  const addPyramid = useCADStore(s => s.addPyramid);
+  const addHelix = useCADStore(s => s.addHelix);
+  const addPipe = useCADStore(s => s.addPipe);
+  const setSelectionMode = useCADStore(s => s.setSelectionMode);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts - FIXED: avoid browser conflicts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // Don't trigger shortcuts when typing in inputs
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
 
+      // Ctrl shortcuts (don't conflict with browser)
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         undo();
+        return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
         e.preventDefault();
         redo();
+        return;
       }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
         e.preventDefault();
         toggleCommandPalette();
+        return;
       }
-      // Quick shortcuts
-      if (e.key === 'b' && !e.ctrlKey && !e.metaKey) openDialog('box');
-      if (e.key === 'c' && !e.ctrlKey && !e.metaKey) openDialog('cylinder');
-      if (e.key === 's' && !e.ctrlKey && !e.metaKey) openDialog('sphere');
-      if (e.key === 'e' && !e.ctrlKey && !e.metaKey) openDialog('extrude');
-      if (e.key === 'f' && !e.ctrlKey && !e.metaKey) openDialog('fillet');
-      if (e.key === 'h' && !e.ctrlKey && !e.metaKey) openDialog('hole');
+      
+      // Single-key shortcuts (only when no modifier keys)
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+        switch (e.key.toLowerCase()) {
+          case 'b': openDialog('box'); break;
+          case 'c': openDialog('cylinder'); break;
+          // 's' removed - conflicts with browser save
+          case 'e': openDialog('extrude'); break;
+          case 'f': openDialog('fillet'); break;
+          case 'h': openDialog('hole'); break;
+          case 'p': openDialog('pipe'); break;
+          // Selection mode shortcuts
+          case '1': setSelectionMode('body'); break;
+          case '2': setSelectionMode('face'); break;
+          case '3': setSelectionMode('edge'); break;
+          case '4': setSelectionMode('vertex'); break;
+        }
+      }
+      
+      // F-key shortcuts
       if (e.key === 'F8') { e.preventDefault(); /* fit view */ }
       if (e.key === 'F6') { e.preventDefault(); /* iso view */ }
     };
@@ -49,13 +72,19 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [undo, redo, toggleCommandPalette, openDialog]);
 
-  // Add some demo features on first load
+  // Add demo features with PROPER OFFSETS (fixed overlap bug)
   useEffect(() => {
     const state = useCADStore.getState();
     if (state.model.features.length === 0) {
-      addBox(60, 40, 50);
-      addCylinder(15, 60);
-      addSphere(20);
+      // Space features out so they don't overlap
+      addBox(60, 40, 50, [0, 0, 0]);
+      addCylinder(15, 60, [-50, 0, 0]);
+      addSphere(20, [50, 0, 0]);
+      addCone(20, 8, 45, [0, 0, -50]);
+      addTorus(25, 8, [0, 0, 50]);
+      addPyramid(30, 40, 4, [-50, 0, -50]);
+      addHelix(15, 8, 4, 2, [50, 0, -50]);
+      addPipe(18, 12, 50, [50, 0, 50]);
     }
   }, []);
 

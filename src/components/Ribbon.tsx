@@ -18,8 +18,6 @@ interface RibbonCommand {
   label: string;
   icon: string;
   shortcut?: string;
-  action: () => void;
-  submenu?: RibbonCommand[];
 }
 
 const ribbonTabs: RibbonTab[] = [
@@ -30,31 +28,36 @@ const ribbonTabs: RibbonTab[] = [
       {
         name: 'Primitives',
         commands: [
-          { id: 'box', label: 'Block', icon: '◻️', shortcut: 'B', action: () => {} },
-          { id: 'cylinder', label: 'Cylinder', icon: '⬡', shortcut: 'C', action: () => {} },
-          { id: 'sphere', label: 'Sphere', icon: '⬤', shortcut: 'S', action: () => {} },
-          { id: 'cone', label: 'Cone', icon: '△', action: () => {} },
-          { id: 'torus', label: 'Torus', icon: '◎', action: () => {} },
+          { id: 'box', label: 'Block', icon: '◻️', shortcut: 'B' },
+          { id: 'cylinder', label: 'Cylinder', icon: '⬡', shortcut: 'C' },
+          { id: 'sphere', label: 'Sphere', icon: '⬤' },
+          { id: 'cone', label: 'Cone', icon: '△' },
+          { id: 'torus', label: 'Torus', icon: '◎' },
+          { id: 'pyramid', label: 'Pyramid', icon: '🔺' },
         ],
       },
       {
         name: 'Sketch',
         commands: [
-          { id: 'sketch', label: 'Sketch', icon: '✏️', shortcut: 'SK', action: () => {} },
-          { id: 'line', label: 'Line', icon: '╱', action: () => {} },
-          { id: 'arc', label: 'Arc', icon: '⌒', action: () => {} },
-          { id: 'circle', label: 'Circle', icon: '○', action: () => {} },
-          { id: 'spline', label: 'Spline', icon: '∿', action: () => {} },
-          { id: 'rectangle', label: 'Rectangle', icon: '▭', action: () => {} },
+          { id: 'sketch', label: 'Sketch', icon: '✏️' },
+          { id: 'line', label: 'Line', icon: '╱' },
+          { id: 'arc', label: 'Arc', icon: '⌒' },
+          { id: 'circle', label: 'Circle', icon: '○' },
+          { id: 'spline', label: 'Spline', icon: '∿' },
+          { id: 'rectangle', label: 'Rectangle', icon: '▭' },
+          { id: 'ellipse', label: 'Ellipse', icon: '⬯' },
+          { id: 'polygon', label: 'Polygon', icon: '⬠' },
         ],
       },
       {
         name: 'Feature',
         commands: [
-          { id: 'extrude', label: 'Extrude', icon: '⬆', shortcut: 'E', action: () => {} },
-          { id: 'revolve', label: 'Revolve', icon: '🔄', action: () => {} },
-          { id: 'sweep', label: 'Sweep', icon: '↗', action: () => {} },
-          { id: 'loft', label: 'Loft', icon: '⤴', action: () => {} },
+          { id: 'extrude', label: 'Extrude', icon: '⬆', shortcut: 'E' },
+          { id: 'revolve', label: 'Revolve', icon: '🔄' },
+          { id: 'sweep', label: 'Sweep', icon: '↗' },
+          { id: 'loft', label: 'Loft', icon: '⤴' },
+          { id: 'pipe', label: 'Pipe', icon: '🔧' },
+          { id: 'helix', label: 'Helix', icon: '🌀' },
         ],
       },
     ],
@@ -66,34 +69,34 @@ const ribbonTabs: RibbonTab[] = [
       {
         name: 'Boolean',
         commands: [
-          { id: 'union', label: 'Unite', icon: '⊕', action: () => {} },
-          { id: 'subtract', label: 'Subtract', icon: '⊖', action: () => {} },
-          { id: 'intersect', label: 'Intersect', icon: '⊗', action: () => {} },
+          { id: 'union', label: 'Unite', icon: '⊕' },
+          { id: 'subtract', label: 'Subtract', icon: '⊖' },
+          { id: 'intersect', label: 'Intersect', icon: '⊗' },
         ],
       },
       {
         name: 'Detail',
         commands: [
-          { id: 'fillet', label: 'Fillet', icon: '⌢', shortcut: 'F', action: () => {} },
-          { id: 'chamfer', label: 'Chamfer', icon: '⟋', action: () => {} },
-          { id: 'shell', label: 'Shell', icon: '⊡', action: () => {} },
-          { id: 'draft', label: 'Draft', icon: '⟁', action: () => {} },
-          { id: 'offset', label: 'Offset', icon: '⊞', action: () => {} },
+          { id: 'fillet', label: 'Fillet', icon: '⌢', shortcut: 'F' },
+          { id: 'chamfer', label: 'Chamfer', icon: '⟋' },
+          { id: 'shell', label: 'Shell', icon: '⊡' },
+          { id: 'draft', label: 'Draft', icon: '⟁' },
+          { id: 'offset', label: 'Offset', icon: '⊞' },
         ],
       },
       {
         name: 'Pattern',
         commands: [
-          { id: 'linear_pattern', label: 'Linear', icon: '⋮', action: () => {} },
-          { id: 'circular_pattern', label: 'Circular', icon: '⟳', action: () => {} },
-          { id: 'mirror', label: 'Mirror', icon: '↔', action: () => {} },
+          { id: 'linear_pattern', label: 'Linear', icon: '⋮' },
+          { id: 'circular_pattern', label: 'Circular', icon: '⟳' },
+          { id: 'mirror', label: 'Mirror', icon: '↔' },
         ],
       },
       {
         name: 'Hole',
         commands: [
-          { id: 'hole', label: 'Hole', icon: '⊙', shortcut: 'H', action: () => {} },
-          { id: 'thread', label: 'Thread', icon: '🔩', action: () => {} },
+          { id: 'hole', label: 'Hole', icon: '⊙', shortcut: 'H' },
+          { id: 'thread', label: 'Thread', icon: '🔩' },
         ],
       },
     ],
@@ -105,20 +108,21 @@ const ribbonTabs: RibbonTab[] = [
       {
         name: 'Create',
         commands: [
-          { id: 'extrude_surf', label: 'Extrude', icon: '⬆', action: () => {} },
-          { id: 'revolve_surf', label: 'Revolve', icon: '🔄', action: () => {} },
-          { id: 'sweep_surf', label: 'Sweep', icon: '↗', action: () => {} },
-          { id: 'n_surface', label: 'N-Sided', icon: '⬡', action: () => {} },
-          { id: 'fillet_surf', label: 'Fillet', icon: '⌢', action: () => {} },
+          { id: 'extrude_surf', label: 'Extrude', icon: '⬆' },
+          { id: 'revolve_surf', label: 'Revolve', icon: '🔄' },
+          { id: 'sweep_surf', label: 'Sweep', icon: '↗' },
+          { id: 'n_surface', label: 'N-Sided', icon: '⬡' },
+          { id: 'fillet_surf', label: 'Fillet', icon: '⌢' },
         ],
       },
       {
         name: 'Edit',
         commands: [
-          { id: 'trim_surf', label: 'Trim', icon: '✂', action: () => {} },
-          { id: 'extend_surf', label: 'Extend', icon: '↔', action: () => {} },
-          { id: 'offset_surf', label: 'Offset', icon: '⊞', action: () => {} },
-          { id: 'stitch', label: 'Stitch', icon: '🪡', action: () => {} },
+          { id: 'trim_surf', label: 'Trim', icon: '✂' },
+          { id: 'extend_surf', label: 'Extend', icon: '↔' },
+          { id: 'offset_surf', label: 'Offset', icon: '⊞' },
+          { id: 'sew', label: 'Sew', icon: '🪡' },
+          { id: 'split', label: 'Split', icon: '⫿' },
         ],
       },
     ],
@@ -130,17 +134,17 @@ const ribbonTabs: RibbonTab[] = [
       {
         name: 'Datum',
         commands: [
-          { id: 'datum_plane', label: 'Plane', icon: '▦', action: () => {} },
-          { id: 'datum_axis', label: 'Axis', icon: '┃', action: () => {} },
-          { id: 'datum_point', label: 'Point', icon: '•', action: () => {} },
-          { id: 'datum_csys', label: 'CSYS', icon: '⊹', action: () => {} },
+          { id: 'datum_plane', label: 'Plane', icon: '▦' },
+          { id: 'datum_axis', label: 'Axis', icon: '┃' },
+          { id: 'datum_point', label: 'Point', icon: '•' },
+          { id: 'datum_csys', label: 'CSYS', icon: '⊹' },
         ],
       },
       {
         name: 'WCS',
         commands: [
-          { id: 'wcs_origin', label: 'Origin', icon: '⊕', action: () => {} },
-          { id: 'wcs_orient', label: 'Orient', icon: '🧭', action: () => {} },
+          { id: 'wcs_origin', label: 'Origin', icon: '⊕' },
+          { id: 'wcs_orient', label: 'Orient', icon: '🧭' },
         ],
       },
     ],
@@ -152,21 +156,21 @@ const ribbonTabs: RibbonTab[] = [
       {
         name: 'Visualize',
         commands: [
-          { id: 'shaded', label: 'Shaded', icon: '🎨', action: () => {} },
-          { id: 'wireframe', label: 'Wireframe', icon: '📐', action: () => {} },
-          { id: 'shaded_edges', label: 'With Edges', icon: '🔲', action: () => {} },
-          { id: 'hidden', label: 'Hidden Line', icon: '⬚', action: () => {} },
-          { id: 'raytraced', label: 'Ray Traced', icon: '☀️', action: () => {} },
+          { id: 'shaded', label: 'Shaded', icon: '🎨' },
+          { id: 'wireframe', label: 'Wireframe', icon: '📐' },
+          { id: 'shaded_edges', label: 'With Edges', icon: '🔲' },
+          { id: 'hidden', label: 'Hidden Line', icon: '⬚' },
+          { id: 'raytraced', label: 'Ray Traced', icon: '☀️' },
         ],
       },
       {
         name: 'Layout',
         commands: [
-          { id: 'fit', label: 'Fit', icon: '⊡', shortcut: 'F8', action: () => {} },
-          { id: 'top', label: 'Top', icon: '⬆', action: () => {} },
-          { id: 'front', label: 'Front', icon: '⬛', action: () => {} },
-          { id: 'right', label: 'Right', icon: '▶', action: () => {} },
-          { id: 'iso', label: 'Isometric', icon: '◇', shortcut: 'F6', action: () => {} },
+          { id: 'fit', label: 'Fit', icon: '⊡', shortcut: 'F8' },
+          { id: 'top', label: 'Top', icon: '⬆' },
+          { id: 'front', label: 'Front', icon: '⬛' },
+          { id: 'right', label: 'Right', icon: '▶' },
+          { id: 'iso', label: 'Isometric', icon: '◇', shortcut: 'F6' },
         ],
       },
     ],
@@ -178,17 +182,26 @@ const ribbonTabs: RibbonTab[] = [
       {
         name: 'Inspect',
         commands: [
-          { id: 'measure_dist', label: 'Distance', icon: '📏', action: () => {} },
-          { id: 'measure_angle', label: 'Angle', icon: '📐', action: () => {} },
-          { id: 'measure_area', label: 'Area', icon: '⬜', action: () => {} },
-          { id: 'measure_vol', label: 'Volume', icon: '📦', action: () => {} },
+          { id: 'measure_dist', label: 'Distance', icon: '📏' },
+          { id: 'measure_angle', label: 'Angle', icon: '📐' },
+          { id: 'measure_area', label: 'Area', icon: '⬜' },
+          { id: 'measure_vol', label: 'Volume', icon: '📦' },
         ],
       },
       {
         name: 'Expression',
         commands: [
-          { id: 'expressions', label: 'Expressions', icon: 'fx', action: () => {} },
-          { id: 'parameters', label: 'Parameters', icon: '⚙', action: () => {} },
+          { id: 'expressions', label: 'Expressions', icon: 'fx' },
+          { id: 'parameters', label: 'Parameters', icon: '⚙' },
+        ],
+      },
+      {
+        name: 'Modify',
+        commands: [
+          { id: 'move', label: 'Move', icon: '✥' },
+          { id: 'rotate_mod', label: 'Rotate', icon: '🔃' },
+          { id: 'simplify', label: 'Simplify', icon: '◽' },
+          { id: 'repair', label: 'Repair', icon: '🔧' },
         ],
       },
     ],
@@ -199,41 +212,32 @@ export default function Ribbon() {
   const [activeTab, setActiveTab] = useState('home');
   const [hoveredCmd, setHoveredCmd] = useState<string | null>(null);
   const openDialog = useCADStore(s => s.openDialog);
-  const addBox = useCADStore(s => s.addBox);
-  const addCylinder = useCADStore(s => s.addCylinder);
-  const addSphere = useCADStore(s => s.addSphere);
-  const addCone = useCADStore(s => s.addCone);
-  const addTorus = useCADStore(s => s.addTorus);
-  const addExtrude = useCADStore(s => s.addExtrude);
-  const addRevolve = useCADStore(s => s.addRevolve);
-  const addFillet = useCADStore(s => s.addFillet);
-  const addChamfer = useCADStore(s => s.addChamfer);
-  const addShell = useCADStore(s => s.addShell);
-  const addHole = useCADStore(s => s.addHole);
   const setViewMode = useCADStore(s => s.setViewMode);
   const startSketch = useCADStore(s => s.startSketch);
+  const undo = useCADStore(s => s.undo);
+  const redo = useCADStore(s => s.redo);
 
   const handleCommand = (cmdId: string) => {
-    switch (cmdId) {
-      case 'box': openDialog('box'); break;
-      case 'cylinder': openDialog('cylinder'); break;
-      case 'sphere': openDialog('sphere'); break;
-      case 'cone': openDialog('cone'); break;
-      case 'torus': openDialog('torus'); break;
-      case 'sketch': startSketch('XY'); break;
-      case 'extrude': openDialog('extrude'); break;
-      case 'revolve': openDialog('revolve'); break;
-      case 'fillet': openDialog('fillet'); break;
-      case 'chamfer': openDialog('chamfer'); break;
-      case 'shell': openDialog('shell'); break;
-      case 'hole': openDialog('hole'); break;
-      case 'shaded': setViewMode('shaded'); break;
-      case 'wireframe': setViewMode('wireframe'); break;
-      case 'shaded_edges': setViewMode('shaded_with_edges'); break;
-      case 'hidden': setViewMode('hidden_line'); break;
-      case 'raytraced': setViewMode('raytraced'); break;
-      default: openDialog(cmdId); break;
+    // Commands that open dialogs
+    const dialogCommands = [
+      'box', 'cylinder', 'sphere', 'cone', 'torus', 'pyramid', 'helix',
+      'extrude', 'revolve', 'fillet', 'chamfer', 'shell', 'hole', 'pipe',
+      'mirror', 'linear_pattern', 'circular_pattern',
+    ];
+    if (dialogCommands.includes(cmdId)) {
+      openDialog(cmdId);
+      return;
     }
+    // View commands
+    if (cmdId === 'shaded') { setViewMode('shaded'); return; }
+    if (cmdId === 'wireframe') { setViewMode('wireframe'); return; }
+    if (cmdId === 'shaded_edges') { setViewMode('shaded_with_edges'); return; }
+    if (cmdId === 'hidden') { setViewMode('hidden_line'); return; }
+    if (cmdId === 'raytraced') { setViewMode('raytraced'); return; }
+    // Sketch
+    if (cmdId === 'sketch') { startSketch('XY'); return; }
+    // For all other commands, open dialog as placeholder
+    openDialog(cmdId);
   };
 
   const currentTab = ribbonTabs.find(t => t.id === activeTab);
@@ -242,7 +246,6 @@ export default function Ribbon() {
     <div className="bg-gray-900/95 backdrop-blur-sm border-b border-white/5 select-none">
       {/* Tab bar */}
       <div className="flex items-center gap-0 px-2">
-        {/* App menu button */}
         <button className="px-3 py-1.5 text-xs font-bold text-purple-400 hover:bg-purple-500/10 rounded-t transition-colors">
           ☰ MENU
         </button>
@@ -262,10 +265,10 @@ export default function Ribbon() {
         ))}
         {/* Quick access on right */}
         <div className="ml-auto flex items-center gap-1">
-          <button className="p-1.5 text-gray-500 hover:text-white hover:bg-white/5 rounded transition-colors" title="Undo (Ctrl+Z)">
+          <button onClick={undo} className="p-1.5 text-gray-500 hover:text-white hover:bg-white/5 rounded transition-colors" title="Undo (Ctrl+Z)">
             ↩
           </button>
-          <button className="p-1.5 text-gray-500 hover:text-white hover:bg-white/5 rounded transition-colors" title="Redo (Ctrl+Y)">
+          <button onClick={redo} className="p-1.5 text-gray-500 hover:text-white hover:bg-white/5 rounded transition-colors" title="Redo (Ctrl+Y)">
             ↪
           </button>
           <div className="w-px h-4 bg-white/10 mx-1" />
@@ -303,7 +306,6 @@ export default function Ribbon() {
                           {cmd.label}
                         </span>
                       </button>
-                      {/* Tooltip */}
                       {hoveredCmd === cmd.id && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 border border-white/10 rounded text-xs text-white whitespace-nowrap z-50 pointer-events-none">
                           {cmd.label}
