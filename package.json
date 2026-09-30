@@ -23,6 +23,9 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.8.0",
     "recharts": "^2.10.0",
+    "replicad": "^1.1.0",
+    "replicad-opencascadejs": "^1.1.0",
+    "replicad-threejs-helper": "^1.0.0",
     "three": "^0.160.0",
     "uuid": "^9.0.1",
     "zustand": "^5.0.15"

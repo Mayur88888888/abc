@@ -7,20 +7,13 @@ import CommandDialog from './components/CommandDialog';
 import CommandPalette from './components/CommandPalette';
 import ViewToolbar from './components/ViewToolbar';
 import { useCADStore } from './store/cadStore';
+import { onKernelStatus } from './kernel/occt';
 
 export default function App() {
   const undo = useCADStore(s => s.undo);
   const redo = useCADStore(s => s.redo);
   const toggleCommandPalette = useCADStore(s => s.toggleCommandPalette);
   const openDialog = useCADStore(s => s.openDialog);
-  const addBox = useCADStore(s => s.addBox);
-  const addCylinder = useCADStore(s => s.addCylinder);
-  const addSphere = useCADStore(s => s.addSphere);
-  const addCone = useCADStore(s => s.addCone);
-  const addTorus = useCADStore(s => s.addTorus);
-  const addPyramid = useCADStore(s => s.addPyramid);
-  const addHelix = useCADStore(s => s.addHelix);
-  const addPipe = useCADStore(s => s.addPipe);
   const setSelectionMode = useCADStore(s => s.setSelectionMode);
 
   // Keyboard shortcuts - FIXED: avoid browser conflicts
@@ -72,20 +65,19 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [undo, redo, toggleCommandPalette, openDialog]);
 
-  // Add demo features with PROPER OFFSETS (fixed overlap bug)
+  // Initialize kernel on mount
   useEffect(() => {
-    const state = useCADStore.getState();
-    if (state.model.features.length === 0) {
-      // Space features out in a grid pattern so they don't overlap
-      addBox(40, 30, 35, [0, 0, 0]);
-      addCylinder(12, 50, [-60, 0, 0]);
-      addSphere(18, [60, 0, 0]);
-      addCone(18, 6, 40, [0, 0, -60]);
-      addTorus(22, 7, [0, 0, 60]);
-      addPyramid(25, 35, 4, [-60, 0, -60]);
-      addHelix(12, 7, 4, 2, [60, 0, -60]);
-      addPipe(15, 10, 45, [60, 0, 60]);
+    const { initKernel } = useCADStore.getState();
+    
+    // Update loading screen with kernel status
+    const statusEl = document.getElementById('kernel-status');
+    if (statusEl) {
+      onKernelStatus((msg: string) => {
+        statusEl.textContent = msg;
+      });
     }
+    
+    initKernel();
   }, []);
 
   return (

@@ -1,44 +1,42 @@
-import { create } from 'zustand';
-import {
-  Feature,
-  CADModel,
-  Vec3,
-  createBoxFeature,
-  createCylinderFeature,
-  createSphereFeature,
-  createConeFeature,
-  createTorusFeature,
-  createPyramidFeature,
-  createHelixFeature,
-  createExtrudeFeature,
-  createRevolveFeature,
-  createFilletFeature,
-  createChamferFeature,
-  createShellFeature,
-  createHoleFeature,
-  createLinearPatternFeature,
-  createCircularPatternFeature,
-  createDatumPlaneFeature,
-  createSweepFeature,
-  createPipeFeature,
-  createLoftFeature,
-  createMirrorFeature,
-} from '../lib/cadEngine';
+// CAD Store with real B-rep kernel integration
+// Features now store actual OpenCASCADE shapes, not just parameters
 
-type ViewMode = 'shaded' | 'wireframe' | 'shaded_with_edges' | 'hidden_line' | 'raytraced';
-type SelectionMode = 'face' | 'edge' | 'vertex' | 'body';
-type ToolMode = 'select' | 'sketch' | 'measure' | 'section';
+import { create } from 'zustand';
+import * as Kernel from '../kernel';
+import type { MeshResult } from '../kernel';
+
+type Vec3 = [number, number, number];
+
+// Feature now stores BOTH params AND the real B-rep shape + tessellation
+interface Feature {
+  id: string;
+  type: string;
+  name: string;
+  params: Record<string, any>;
+  visible: boolean;
+  suppressed: boolean;
+  timestamp: number;
+  
+  // NEW: Real B-rep shape (opaque handle from OCCT)
+  brepShape: any;
+  
+  // NEW: Tessellated mesh for Three.js rendering
+  meshData: MeshResult | null;
+}
+
+type ViewMode = 'shaded' | 'wireframe' | 'shaded_with_edges' | 'hidden_line';
+type SelectionMode = 'body' | 'face' | 'edge' | 'vertex';
 
 interface CADState {
   // Model
-  model: CADModel;
+  features: Feature[];
+  modelName: string;
+  units: 'mm' | 'inch';
   
   // Viewport
   viewMode: ViewMode;
   showGrid: boolean;
   showAxes: boolean;
-  showOrigin: boolean;
-  snapToGrid: boolean;
   gridSize: number;
   
   // Selection
@@ -46,29 +44,26 @@ interface CADState {
   hoveredFeature: string | null;
   selectionMode: SelectionMode;
   
-  // Tools
-  activeTool: ToolMode;
-  sketchActive: boolean;
-  sketchPlane: 'XY' | 'XZ' | 'YZ';
-  
-  // UI State
-  activeTab: string;
-  commandPaletteOpen: boolean;
+  // UI
   dialogOpen: string | null;
-  dialogParams: Record<string, any>;
+  commandPaletteOpen: boolean;
   
   // History
-  undoStack: CADModel[];
-  redoStack: CADModel[];
+  undoStack: Feature[][];
+  redoStack: Feature[][];
   
   // Status
   cursorPosition: Vec3;
   statusMessage: string;
+  kernelReady: boolean;
   
   // Internal
   _saveState: () => void;
   
-  // Actions - Model (all support position offset for proper placement)
+  // Kernel
+  initKernel: () => Promise<void>;
+  
+  // Feature creation - NOW USES REAL B-REP
   addBox: (w: number, h: number, d: number, pos?: Vec3) => void;
   addCylinder: (r: number, h: number, pos?: Vec3) => void;
   addSphere: (r: number, pos?: Vec3) => void;
@@ -76,289 +71,365 @@ interface CADState {
   addTorus: (R: number, r: number, pos?: Vec3) => void;
   addPyramid: (base: number, h: number, sides: number, pos?: Vec3) => void;
   addHelix: (r: number, pitch: number, turns: number, wireR: number, pos?: Vec3) => void;
-  addExtrude: (distance: number, direction: Vec3, taper: number, pos?: Vec3) => void;
-  addRevolve: (axis: Vec3, angle: number, pos?: Vec3) => void;
-  addFillet: (radius: number, pos?: Vec3) => void;
-  addChamfer: (distance: number, angle: number, pos?: Vec3) => void;
-  addShell: (thickness: number, pos?: Vec3) => void;
-  addHole: (position: Vec3, diameter: number, depth: number, type: string) => void;
-  addLinearPattern: (direction: Vec3, count: number, spacing: number, pos?: Vec3) => void;
-  addCircularPattern: (axis: Vec3, count: number, angle: number, pos?: Vec3) => void;
-  addDatumPlane: (offset: number, reference: string) => void;
-  addSweep: (pos?: Vec3) => void;
   addPipe: (outerR: number, innerR: number, h: number, pos?: Vec3) => void;
-  addLoft: (pos?: Vec3) => void;
-  addMirror: (plane: string, pos?: Vec3) => void;
   
-  // Actions - Feature management
+  // Boolean operations - NOW WORK WITH REAL SHAPES
+  booleanUnite: (id1: string, id2: string) => void;
+  booleanSubtract: (targetId: string, toolId: string) => void;
+  
+  // Feature operations
+  addFillet: (radius: number) => void;
+  addChamfer: (distance: number) => void;
+  addShell: (thickness: number) => void;
+  
+  // Feature management
   deleteFeature: (id: string) => void;
   toggleFeatureVisibility: (id: string) => void;
-  suppressFeature: (id: string) => void;
-  renameFeature: (id: string, name: string) => void;
-  reorderFeatures: (fromIndex: number, toIndex: number) => void;
-  editFeatureParams: (id: string, params: Record<string, any>) => void;
-  
-  // Actions - Viewport
-  setViewMode: (mode: ViewMode) => void;
-  toggleGrid: () => void;
-  toggleAxes: () => void;
-  setSnapToGrid: (snap: boolean) => void;
-  setGridSize: (size: number) => void;
-  
-  // Actions - Selection
   selectFeature: (id: string, multi?: boolean) => void;
   clearSelection: () => void;
   setHoveredFeature: (id: string | null) => void;
+  
+  // Viewport
+  setViewMode: (mode: ViewMode) => void;
+  toggleGrid: () => void;
+  toggleAxes: () => void;
+  
+  // UI
+  openDialog: (dialog: string) => void;
+  closeDialog: () => void;
+  toggleCommandPalette: () => void;
   setSelectionMode: (mode: SelectionMode) => void;
   
-  // Actions - Tools
-  setActiveTool: (tool: ToolMode) => void;
-  startSketch: (plane: 'XY' | 'XZ' | 'YZ') => void;
-  endSketch: () => void;
-  
-  // Actions - UI
-  setActiveTab: (tab: string) => void;
-  toggleCommandPalette: () => void;
-  openDialog: (dialog: string, params?: Record<string, any>) => void;
-  closeDialog: () => void;
-  
-  // Actions - History
+  // History
   undo: () => void;
   redo: () => void;
   
-  // Actions - Status
+  // Status
   setCursorPosition: (pos: Vec3) => void;
   setStatusMessage: (msg: string) => void;
 }
 
-const initialModel: CADModel = {
-  name: 'Untitled_Part',
-  units: 'mm',
-  features: [],
-  activeSketch: null,
-  selectedEntities: [],
-  workPlane: 'XY',
-};
+// Helper: Create a feature with real B-rep shape
+function createFeature(
+  type: string,
+  name: string,
+  params: Record<string, any>,
+  brepShape: any,
+  position?: Vec3
+): Feature {
+  // Tessellate the B-rep shape for rendering
+  let meshData: MeshResult | null = null;
+  try {
+    meshData = Kernel.tessellateShape(brepShape, 0.1);
+  } catch (e) {
+    console.error(`Failed to tessellate ${type}:`, e);
+  }
+  
+  return {
+    id: `feat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    type,
+    name,
+    params: { ...params, position: position || [0, 0, 0] },
+    visible: true,
+    suppressed: false,
+    timestamp: Date.now(),
+    brepShape,
+    meshData,
+  };
+}
+
+let idCounter = 0;
 
 export const useCADStore = create<CADState>((set, get) => ({
   // Initial state
-  model: initialModel,
+  features: [],
+  modelName: 'Untitled_Part',
+  units: 'mm',
   viewMode: 'shaded_with_edges',
   showGrid: true,
   showAxes: true,
-  showOrigin: true,
-  snapToGrid: false,
   gridSize: 10,
   selectedFeatures: [],
   hoveredFeature: null,
   selectionMode: 'body',
-  activeTool: 'select',
-  sketchActive: false,
-  sketchPlane: 'XY',
-  activeTab: 'model',
-  commandPaletteOpen: false,
   dialogOpen: null,
-  dialogParams: {},
+  commandPaletteOpen: false,
   undoStack: [],
   redoStack: [],
   cursorPosition: [0, 0, 0],
-  statusMessage: 'Ready',
+  statusMessage: 'Initializing...',
+  kernelReady: false,
 
   // Save state for undo
   _saveState: () => {
     const state = get();
+    // Store only serializable data (not B-rep shapes) for undo
+    const serializableFeatures = state.features.map(f => ({
+      ...f,
+      brepShape: null, // Can't serialize B-rep, will need to rebuild
+      meshData: null,
+    }));
     set({
-      undoStack: [...state.undoStack.slice(-50), JSON.parse(JSON.stringify(state.model))],
+      undoStack: [...state.undoStack.slice(-30), state.features],
       redoStack: [],
     });
   },
 
-  // Model operations - ALL with position support
+  // Initialize the OCCT kernel
+  initKernel: async () => {
+    try {
+      set({ statusMessage: 'Loading OpenCASCADE kernel...' });
+      await Kernel.initKernel();
+      set({ kernelReady: true, statusMessage: 'Kernel ready ✓' });
+      
+      // Create demo features now that kernel is ready
+      const state = get();
+      if (state.features.length === 0) {
+        state.addBox(40, 30, 35, [0, 0, 0]);
+        state.addCylinder(12, 50, [-60, 0, 0]);
+        state.addSphere(18, [60, 0, 0]);
+        state.addCone(18, 6, 40, [0, 0, -60]);
+        state.addTorus(22, 7, [0, 0, 60]);
+        state.addPyramid(25, 35, 4, [-60, 0, -60]);
+        state.addPipe(15, 10, 45, [60, 0, 60]);
+      }
+    } catch (error) {
+      set({ statusMessage: `Kernel failed: ${error}` });
+      console.error('Kernel init failed:', error);
+    }
+  },
+
+  // ============ FEATURE CREATION (Real B-rep) ============
+
   addBox: (w, h, d, pos) => {
-    get()._saveState();
-    const feature = createBoxFeature({ width: w, height: h, depth: d, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created Block ${w}×${h}×${d} mm`,
-    }));
+    try {
+      get()._saveState();
+      const shape = Kernel.createBox(w, h, d);
+      const feature = createFeature('box', `Block ${w}×${h}×${d}`, { width: w, height: h, depth: d }, shape, pos);
+      set(state => ({
+        features: [...state.features, feature],
+        statusMessage: `Created Block ${w}×${h}×${d} mm (${feature.meshData?.faceCount || 0} faces)`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Error creating box: ${e}` });
+    }
   },
 
   addCylinder: (r, h, pos) => {
-    get()._saveState();
-    const feature = createCylinderFeature({ radius: r, height: h, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created Cylinder R${r} × H${h} mm`,
-    }));
+    try {
+      get()._saveState();
+      const shape = Kernel.createCylinder(r, h);
+      const feature = createFeature('cylinder', `Cylinder R${r} H${h}`, { radius: r, height: h }, shape, pos);
+      set(state => ({
+        features: [...state.features, feature],
+        statusMessage: `Created Cylinder R${r} × H${h} mm (${feature.meshData?.faceCount || 0} faces)`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Error creating cylinder: ${e}` });
+    }
   },
 
   addSphere: (r, pos) => {
-    get()._saveState();
-    const feature = createSphereFeature({ radius: r, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created Sphere R${r} mm`,
-    }));
+    try {
+      get()._saveState();
+      const shape = Kernel.createSphere(r);
+      const feature = createFeature('sphere', `Sphere R${r}`, { radius: r }, shape, pos);
+      set(state => ({
+        features: [...state.features, feature],
+        statusMessage: `Created Sphere R${r} mm (${feature.meshData?.faceCount || 0} faces)`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Error creating sphere: ${e}` });
+    }
   },
 
   addCone: (r1, r2, h, pos) => {
-    get()._saveState();
-    const feature = createConeFeature({ radius1: r1, radius2: r2, height: h, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created Cone R${r1}/R${r2} × H${h} mm`,
-    }));
+    try {
+      get()._saveState();
+      const shape = Kernel.createCone(r1, r2, h);
+      const feature = createFeature('cone', `Cone R${r1}/R${r2} H${h}`, { radius1: r1, radius2: r2, height: h }, shape, pos);
+      set(state => ({
+        features: [...state.features, feature],
+        statusMessage: `Created Cone R${r1}/R${r2} × H${h} mm`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Error creating cone: ${e}` });
+    }
   },
 
   addTorus: (R, r, pos) => {
-    get()._saveState();
-    const feature = createTorusFeature({ majorRadius: R, minorRadius: r, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created Torus R${R} × r${r} mm`,
-    }));
+    try {
+      get()._saveState();
+      const shape = Kernel.createTorus(R, r);
+      const feature = createFeature('torus', `Torus R${R} r${r}`, { majorRadius: R, minorRadius: r }, shape, pos);
+      set(state => ({
+        features: [...state.features, feature],
+        statusMessage: `Created Torus R${R} × r${r} mm`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Error creating torus: ${e}` });
+    }
   },
 
   addPyramid: (base, h, sides, pos) => {
-    get()._saveState();
-    const feature = createPyramidFeature({ baseSize: base, height: h, sides, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created ${sides}-sided Pyramid H${h} mm`,
-    }));
+    try {
+      get()._saveState();
+      const shape = Kernel.createPyramid(base, h, sides);
+      const feature = createFeature('pyramid', `Pyramid ${sides}-side H${h}`, { baseSize: base, height: h, sides }, shape, pos);
+      set(state => ({
+        features: [...state.features, feature],
+        statusMessage: `Created ${sides}-sided Pyramid H${h} mm`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Error creating pyramid: ${e}` });
+    }
   },
 
   addHelix: (r, pitch, turns, wireR, pos) => {
-    get()._saveState();
-    const feature = createHelixFeature({ radius: r, pitch, turns, wireRadius: wireR, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created Helix R${r}, ${turns} turns`,
-    }));
-  },
-
-  addExtrude: (distance, direction, taper, pos) => {
-    get()._saveState();
-    const feature = createExtrudeFeature({ distance, direction, taper, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Extruded ${distance} mm`,
-    }));
-  },
-
-  addRevolve: (axis, angle, pos) => {
-    get()._saveState();
-    const feature = createRevolveFeature({ axis, angle, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Revolved ${angle}°`,
-    }));
-  },
-
-  addFillet: (radius, pos) => {
-    get()._saveState();
-    const feature = createFilletFeature({ radius, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Applied Fillet R${radius} mm`,
-    }));
-  },
-
-  addChamfer: (distance, angle, pos) => {
-    get()._saveState();
-    const feature = createChamferFeature({ distance, angle, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Applied Chamfer ${distance}mm × ${angle}°`,
-    }));
-  },
-
-  addShell: (thickness, pos) => {
-    get()._saveState();
-    const feature = createShellFeature({ thickness, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Shell thickness: ${thickness} mm`,
-    }));
-  },
-
-  addHole: (position, diameter, depth, type) => {
-    get()._saveState();
-    const feature = createHoleFeature({ position, diameter, depth, type });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created ${type} hole D${diameter} × D${depth} mm`,
-    }));
-  },
-
-  addLinearPattern: (direction, count, spacing, pos) => {
-    get()._saveState();
-    const f = createLinearPatternFeature({ direction, count, spacing, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, f] },
-      statusMessage: `Linear pattern: ${count} instances, ${spacing}mm spacing`,
-    }));
-  },
-
-  addCircularPattern: (axis, count, angle, pos) => {
-    get()._saveState();
-    const f = createCircularPatternFeature({ axis, count, angle, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, f] },
-      statusMessage: `Circular pattern: ${count} instances, ${angle}°`,
-    }));
-  },
-
-  addDatumPlane: (offset, reference) => {
-    get()._saveState();
-    const feature = createDatumPlaneFeature({ offset, reference });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created datum plane at ${offset} mm`,
-    }));
-  },
-
-  addSweep: (pos) => {
-    get()._saveState();
-    const feature = createSweepFeature({ position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created sweep feature`,
-    }));
+    try {
+      get()._saveState();
+      const shape = Kernel.createHelix(r, pitch, turns, wireR);
+      const feature = createFeature('helix', `Helix R${r} ${turns}T`, { radius: r, pitch, turns, wireRadius: wireR }, shape, pos);
+      set(state => ({
+        features: [...state.features, feature],
+        statusMessage: `Created Helix R${r}, ${turns} turns`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Error creating helix: ${e}` });
+    }
   },
 
   addPipe: (outerR, innerR, h, pos) => {
-    get()._saveState();
-    const feature = createPipeFeature({ outerRadius: outerR, innerRadius: innerR, height: h, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created Pipe OR${outerR} IR${innerR} H${h} mm`,
-    }));
+    try {
+      get()._saveState();
+      const shape = Kernel.createPipe(outerR, innerR, h);
+      const feature = createFeature('pipe', `Pipe OR${outerR} IR${innerR}`, { outerRadius: outerR, innerRadius: innerR, height: h }, shape, pos);
+      set(state => ({
+        features: [...state.features, feature],
+        statusMessage: `Created Pipe OR${outerR} IR${innerR} H${h} mm`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Error creating pipe: ${e}` });
+    }
   },
 
-  addLoft: (pos) => {
-    get()._saveState();
-    const feature = createLoftFeature({ position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created loft feature`,
-    }));
+  // ============ BOOLEAN OPERATIONS (Real CSG!) ============
+
+  booleanUnite: (id1, id2) => {
+    try {
+      get()._saveState();
+      const f1 = get().features.find(f => f.id === id1);
+      const f2 = get().features.find(f => f.id === id2);
+      if (!f1 || !f2) return;
+      
+      const result = Kernel.booleanUnite(f1.brepShape, f2.brepShape);
+      const feature = createFeature('boolean_union', `Union`, { target: id1, tool: id2 }, result);
+      
+      set(state => ({
+        features: [...state.features.filter(f => f.id !== id1 && f.id !== id2), feature],
+        statusMessage: `Boolean Unite complete`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Boolean unite failed: ${e}` });
+    }
   },
 
-  addMirror: (plane, pos) => {
-    get()._saveState();
-    const feature = createMirrorFeature({ plane, position: pos });
-    set(state => ({
-      model: { ...state.model, features: [...state.model.features, feature] },
-      statusMessage: `Created mirror on ${plane} plane`,
-    }));
+  booleanSubtract: (targetId, toolId) => {
+    try {
+      get()._saveState();
+      const target = get().features.find(f => f.id === targetId);
+      const tool = get().features.find(f => f.id === toolId);
+      if (!target || !tool) return;
+      
+      const result = Kernel.booleanSubtract(target.brepShape, tool.brepShape);
+      const feature = createFeature('boolean_subtract', `Subtract`, { target: targetId, tool: toolId }, result);
+      
+      set(state => ({
+        features: [...state.features.filter(f => f.id !== targetId && f.id !== toolId), feature],
+        statusMessage: `Boolean Subtract complete`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Boolean subtract failed: ${e}` });
+    }
   },
 
-  // Feature management
+  // ============ FEATURE OPERATIONS ============
+
+  addFillet: (radius) => {
+    try {
+      const selected = get().selectedFeatures;
+      if (selected.length === 0) {
+        set({ statusMessage: 'Select a feature first to fillet' });
+        return;
+      }
+      get()._saveState();
+      const target = get().features.find(f => f.id === selected[0]);
+      if (!target) return;
+      
+      const result = Kernel.filletEdges(target.brepShape, radius);
+      const feature = createFeature('fillet', `Fillet R${radius}`, { radius }, result);
+      
+      set(state => ({
+        features: [...state.features.filter(f => f.id !== selected[0]), feature],
+        statusMessage: `Applied Fillet R${radius} mm`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Fillet failed: ${e}` });
+    }
+  },
+
+  addChamfer: (distance) => {
+    try {
+      const selected = get().selectedFeatures;
+      if (selected.length === 0) {
+        set({ statusMessage: 'Select a feature first to chamfer' });
+        return;
+      }
+      get()._saveState();
+      const target = get().features.find(f => f.id === selected[0]);
+      if (!target) return;
+      
+      const result = Kernel.chamferEdges(target.brepShape, distance);
+      const feature = createFeature('chamfer', `Chamfer ${distance}mm`, { distance }, result);
+      
+      set(state => ({
+        features: [...state.features.filter(f => f.id !== selected[0]), feature],
+        statusMessage: `Applied Chamfer ${distance} mm`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Chamfer failed: ${e}` });
+    }
+  },
+
+  addShell: (thickness) => {
+    try {
+      const selected = get().selectedFeatures;
+      if (selected.length === 0) {
+        set({ statusMessage: 'Select a feature first to shell' });
+        return;
+      }
+      get()._saveState();
+      const target = get().features.find(f => f.id === selected[0]);
+      if (!target) return;
+      
+      const result = Kernel.shellSolid(target.brepShape, thickness);
+      const feature = createFeature('shell', `Shell t${thickness}`, { thickness }, result);
+      
+      set(state => ({
+        features: [...state.features.filter(f => f.id !== selected[0]), feature],
+        statusMessage: `Applied Shell thickness ${thickness} mm`,
+      }));
+    } catch (e) {
+      set({ statusMessage: `Shell failed: ${e}` });
+    }
+  },
+
+  // ============ FEATURE MANAGEMENT ============
+
   deleteFeature: (id) => {
     get()._saveState();
     set(state => ({
-      model: { ...state.model, features: state.model.features.filter(f => f.id !== id) },
+      features: state.features.filter(f => f.id !== id),
       selectedFeatures: state.selectedFeatures.filter(f => f !== id),
       statusMessage: 'Feature deleted',
     }));
@@ -366,70 +437,12 @@ export const useCADStore = create<CADState>((set, get) => ({
 
   toggleFeatureVisibility: (id) => {
     set(state => ({
-      model: {
-        ...state.model,
-        features: state.model.features.map(f =>
-          f.id === id ? { ...f, visible: !f.visible } : f
-        ),
-      },
+      features: state.features.map(f =>
+        f.id === id ? { ...f, visible: !f.visible } : f
+      ),
     }));
   },
 
-  suppressFeature: (id) => {
-    get()._saveState();
-    set(state => ({
-      model: {
-        ...state.model,
-        features: state.model.features.map(f =>
-          f.id === id ? { ...f, suppressed: !f.suppressed } : f
-        ),
-      },
-      statusMessage: 'Feature suppressed',
-    }));
-  },
-
-  renameFeature: (id, name) => {
-    set(state => ({
-      model: {
-        ...state.model,
-        features: state.model.features.map(f =>
-          f.id === id ? { ...f, name } : f
-        ),
-      },
-    }));
-  },
-
-  reorderFeatures: (fromIndex, toIndex) => {
-    get()._saveState();
-    set(state => {
-      const features = [...state.model.features];
-      const [moved] = features.splice(fromIndex, 1);
-      features.splice(toIndex, 0, moved);
-      return { model: { ...state.model, features } };
-    });
-  },
-
-  editFeatureParams: (id, params) => {
-    get()._saveState();
-    set(state => ({
-      model: {
-        ...state.model,
-        features: state.model.features.map(f =>
-          f.id === id ? { ...f, params: { ...f.params, ...params } } : f
-        ),
-      },
-      statusMessage: 'Feature parameters updated',
-    }));
-  },
-
-  // Viewport
-  setViewMode: (mode) => set({ viewMode: mode }),
-  toggleGrid: () => set(state => ({ showGrid: !state.showGrid })),
-  toggleAxes: () => set(state => ({ showAxes: !state.showAxes })),
-  setSnapToGrid: (snap) => set({ snapToGrid: snap }),
-  setGridSize: (size) => set({ gridSize: size }),
-
-  // Selection
   selectFeature: (id, multi = false) => {
     set(state => ({
       selectedFeatures: multi
@@ -439,30 +452,33 @@ export const useCADStore = create<CADState>((set, get) => ({
         : [id],
     }));
   },
+
   clearSelection: () => set({ selectedFeatures: [] }),
   setHoveredFeature: (id) => set({ hoveredFeature: id }),
+
+  // ============ VIEWPORT ============
+
+  setViewMode: (mode) => set({ viewMode: mode }),
+  toggleGrid: () => set(state => ({ showGrid: !state.showGrid })),
+  toggleAxes: () => set(state => ({ showAxes: !state.showAxes })),
+
+  // ============ UI ============
+
+  openDialog: (dialog) => set({ dialogOpen: dialog }),
+  closeDialog: () => set({ dialogOpen: null }),
+  toggleCommandPalette: () => set(state => ({ commandPaletteOpen: !state.commandPaletteOpen })),
   setSelectionMode: (mode) => set({ selectionMode: mode }),
 
-  // Tools
-  setActiveTool: (tool) => set({ activeTool: tool }),
-  startSketch: (plane) => set({ sketchActive: true, sketchPlane: plane, activeTool: 'sketch' }),
-  endSketch: () => set({ sketchActive: false, activeTool: 'select' }),
+  // ============ HISTORY ============
 
-  // UI
-  setActiveTab: (tab) => set({ activeTab: tab }),
-  toggleCommandPalette: () => set(state => ({ commandPaletteOpen: !state.commandPaletteOpen })),
-  openDialog: (dialog, params = {}) => set({ dialogOpen: dialog, dialogParams: params }),
-  closeDialog: () => set({ dialogOpen: null, dialogParams: {} }),
-
-  // History
   undo: () => {
     const state = get();
     if (state.undoStack.length === 0) return;
     const prev = state.undoStack[state.undoStack.length - 1];
     set({
-      model: prev,
+      features: prev,
       undoStack: state.undoStack.slice(0, -1),
-      redoStack: [...state.redoStack, JSON.parse(JSON.stringify(state.model))],
+      redoStack: [...state.redoStack, state.features],
       statusMessage: 'Undo',
     });
   },
@@ -472,14 +488,15 @@ export const useCADStore = create<CADState>((set, get) => ({
     if (state.redoStack.length === 0) return;
     const next = state.redoStack[state.redoStack.length - 1];
     set({
-      model: next,
+      features: next,
       redoStack: state.redoStack.slice(0, -1),
-      undoStack: [...state.undoStack, JSON.parse(JSON.stringify(state.model))],
+      undoStack: [...state.undoStack, state.features],
       statusMessage: 'Redo',
     });
   },
 
-  // Status
+  // ============ STATUS ============
+
   setCursorPosition: (pos) => set({ cursorPosition: pos }),
   setStatusMessage: (msg) => set({ statusMessage: msg }),
 }));
