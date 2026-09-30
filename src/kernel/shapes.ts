@@ -34,46 +34,93 @@ export interface MeshResult {
  * Tessellate a replicad Shape into mesh data for Three.js rendering
  */
 export function tessellateShape(shape: BRepShape, tolerance: number = 0.1): MeshResult {
+  console.log('[Tessellate] Starting tessellation with tolerance:', tolerance);
+  
   // Get face mesh (triangulated surfaces)
-  const mesh = shape.mesh({ tolerance, angularTolerance: 30 });
+  let mesh;
+  try {
+    mesh = shape.mesh({ tolerance, angularTolerance: 30 });
+    console.log('[Tessellate] Mesh created:', mesh);
+    console.log('[Tessellate] Mesh keys:', Object.keys(mesh || {}));
+  } catch (e) {
+    console.error('[Tessellate] Failed to create mesh:', e);
+    throw e;
+  }
   
   // Get edge mesh (line segments)
   let edgePositions = new Float32Array(0);
   let edgeIndices = new Uint32Array(0);
   try {
     const edgeMesh = shape.meshEdges({ tolerance });
+    console.log('[Tessellate] Edge mesh created:', edgeMesh);
     if (edgeMesh) {
       edgePositions = edgeMesh.positions || new Float32Array(0);
       edgeIndices = edgeMesh.indices || new Uint32Array(0);
     }
   } catch (e) {
-    // Some shapes may not have edges
+    console.warn('[Tessellate] Failed to create edge mesh:', e);
   }
   
-  // Get bounding box
-  const bound = shape.boundingBox;
+  // Get bounding box - handle different API formats
+  let boundingBox = {
+    min: [0, 0, 0] as [number, number, number],
+    max: [0, 0, 0] as [number, number, number],
+  };
+  
+  try {
+    const bound = shape.boundingBox;
+    console.log('[Tessellate] Bounding box:', bound);
+    console.log('[Tessellate] Bounding box keys:', Object.keys(bound || {}));
+    
+    if (bound) {
+      // Try different possible formats
+      if (bound.min && typeof bound.min === 'object') {
+        // Format: { min: { X, Y, Z }, max: { X, Y, Z } }
+        boundingBox.min = [bound.min.X || 0, bound.min.Y || 0, bound.min.Z || 0];
+        boundingBox.max = [bound.max.X || 0, bound.max.Y || 0, bound.max.Z || 0];
+      } else if (bound.min && Array.isArray(bound.min)) {
+        // Format: { min: [x, y, z], max: [x, y, z] }
+        boundingBox.min = bound.min;
+        boundingBox.max = bound.max;
+      } else if (bound.minX !== undefined) {
+        // Format: { minX, minY, minZ, maxX, maxY, maxZ }
+        boundingBox.min = [bound.minX || 0, bound.minY || 0, bound.minZ || 0];
+        boundingBox.max = [bound.maxX || 0, bound.maxY || 0, bound.maxZ || 0];
+      }
+    }
+  } catch (e) {
+    console.warn('[Tessellate] Failed to get bounding box:', e);
+  }
   
   // Count topology
   let faceCount = 0, edgeCount = 0, vertexCount = 0;
-  try { faceCount = shape.faces?.length || 0; } catch(e) {}
-  try { edgeCount = shape.edges?.length || 0; } catch(e) {}
-  try { vertexCount = shape.vertices?.length || 0; } catch(e) {}
+  try { faceCount = shape.faces?.length || 0; } catch(e) { console.warn('[Tessellate] Failed to count faces:', e); }
+  try { edgeCount = shape.edges?.length || 0; } catch(e) { console.warn('[Tessellate] Failed to count edges:', e); }
+  try { vertexCount = shape.vertices?.length || 0; } catch(e) { console.warn('[Tessellate] Failed to count vertices:', e); }
   
-  return {
-    facePositions: mesh.positions || new Float32Array(0),
-    faceNormals: mesh.normals || new Float32Array(0),
-    faceIndices: mesh.indices || new Uint32Array(0),
-    faceGroups: mesh.faceGroups || [],
+  console.log('[Tessellate] Topology:', { faceCount, edgeCount, vertexCount });
+  
+  const result = {
+    facePositions: mesh?.positions || new Float32Array(0),
+    faceNormals: mesh?.normals || new Float32Array(0),
+    faceIndices: mesh?.indices || new Uint32Array(0),
+    faceGroups: mesh?.faceGroups || [],
     edgePositions,
     edgeIndices,
-    boundingBox: {
-      min: [bound.min.X, bound.min.Y, bound.min.Z],
-      max: [bound.max.X, bound.max.Y, bound.max.Z],
-    },
+    boundingBox,
     faceCount,
     edgeCount,
     vertexCount,
   };
+  
+  console.log('[Tessellate] Result:', {
+    facePositions: result.facePositions.length,
+    faceNormals: result.faceNormals.length,
+    faceIndices: result.faceIndices.length,
+    boundingBox: result.boundingBox,
+  });
+  
+  return result;
 }
 
 // ============================================================
