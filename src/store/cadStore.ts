@@ -125,6 +125,32 @@ function createFeature(
     console.log(`[Store] Tessellating ${type}...`);
     meshData = Kernel.tessellateShape(brepShape, 0.1);
     console.log(`[Store] ✓ Tessellation complete: ${meshData.faceCount} faces, ${meshData.edgeCount} edges`);
+    console.log(`[Store] Mesh data details:`, {
+      facePositions: meshData.facePositions ? {
+        exists: true,
+        length: meshData.facePositions.length,
+        type: meshData.facePositions.constructor.name,
+        sample: meshData.facePositions.length > 0 ? Array.from(meshData.facePositions.slice(0, 9)) : [],
+      } : { exists: false },
+      faceNormals: meshData.faceNormals ? {
+        exists: true,
+        length: meshData.faceNormals.length,
+        type: meshData.faceNormals.constructor.name,
+      } : { exists: false },
+      faceIndices: meshData.faceIndices ? {
+        exists: true,
+        length: meshData.faceIndices.length,
+        type: meshData.faceIndices.constructor.name,
+      } : { exists: false },
+      edgePositions: meshData.edgePositions ? {
+        exists: true,
+        length: meshData.edgePositions.length,
+      } : { exists: false },
+      edgeIndices: meshData.edgeIndices ? {
+        exists: true,
+        length: meshData.edgeIndices.length,
+      } : { exists: false },
+    });
   } catch (e) {
     console.error(`[Store] ❌ Failed to tessellate ${type}:`, e);
   }
