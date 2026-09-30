@@ -3,7 +3,6 @@ import { useCADStore } from '../store/cadStore';
 export default function StatusBar() {
   const cursorPosition = useCADStore(s => s.cursorPosition);
   const statusMessage = useCADStore(s => s.statusMessage);
-  const units = useCADStore(s => s.units);
   const viewMode = useCADStore(s => s.viewMode);
   const selectedFeatures = useCADStore(s => s.selectedFeatures);
   const selectionMode = useCADStore(s => s.selectionMode);
@@ -73,7 +72,7 @@ export default function StatusBar() {
 
       {/* Right side info */}
       <div className="flex items-center gap-3">
-        <span className="text-gray-500">{units.toUpperCase()}</span>
+        <span className="text-gray-500">MM</span>
         <span className="text-gray-500 capitalize">{viewMode.replace(/_/g, ' ')}</span>
         <span className="text-gray-500">{features.length} features</span>
       </div>

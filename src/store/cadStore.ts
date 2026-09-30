@@ -1,13 +1,11 @@
-// CAD Store with real B-rep kernel integration
-// Features now store actual OpenCASCADE shapes, not just parameters
-
+// CAD Store - Hybrid rendering (Three.js primitives + replicad B-rep)
 import { create } from 'zustand';
 import * as Kernel from '../kernel';
-import type { MeshResult } from '../kernel';
+import { createRenderMesh } from '../kernel/renderer';
+import type { RenderMesh } from '../kernel';
 
 type Vec3 = [number, number, number];
 
-// Feature now stores BOTH params AND the real B-rep shape + tessellation
 interface Feature {
   id: string;
   type: string;
@@ -16,64 +14,43 @@ interface Feature {
   visible: boolean;
   suppressed: boolean;
   timestamp: number;
-  
-  // NEW: Real B-rep shape (opaque handle from OCCT)
-  brepShape: any;
-  
-  // NEW: Tessellated mesh for Three.js rendering
-  meshData: MeshResult | null;
+  renderMesh: RenderMesh | null;
 }
 
 type ViewMode = 'shaded' | 'wireframe' | 'shaded_with_edges' | 'hidden_line';
 type SelectionMode = 'body' | 'face' | 'edge' | 'vertex';
 
 interface CADState {
-  // Model
   features: Feature[];
-  modelName: string;
-  units: 'mm' | 'inch';
-  
-  // Viewport
   viewMode: ViewMode;
   showGrid: boolean;
   showAxes: boolean;
   gridSize: number;
-  
-  // Selection
   selectedFeatures: string[];
   hoveredFeature: string | null;
   selectionMode: SelectionMode;
-  
-  // UI
   dialogOpen: string | null;
   commandPaletteOpen: boolean;
-  
-  // History
   undoStack: Feature[][];
   redoStack: Feature[][];
-  
-  // Status
   cursorPosition: Vec3;
   statusMessage: string;
   kernelReady: boolean;
   
-  // Internal
   _saveState: () => void;
-  
-  // Kernel
   initKernel: () => Promise<void>;
   
-  // Feature creation - NOW USES REAL B-REP
-  addBox: (w: number, h: number, d: number, pos?: Vec3) => void;
-  addCylinder: (r: number, h: number, pos?: Vec3) => void;
-  addSphere: (r: number, pos?: Vec3) => void;
-  addCone: (r1: number, r2: number, h: number, pos?: Vec3) => void;
-  addTorus: (R: number, r: number, pos?: Vec3) => void;
-  addPyramid: (base: number, h: number, sides: number, pos?: Vec3) => void;
-  addHelix: (r: number, pitch: number, turns: number, wireR: number, pos?: Vec3) => void;
-  addPipe: (outerR: number, innerR: number, h: number, pos?: Vec3) => void;
+  // Feature creation
+  addBox: (w: number, h: number, d: number, pos?: Vec3) => Promise<void>;
+  addCylinder: (r: number, h: number, pos?: Vec3) => Promise<void>;
+  addSphere: (r: number, pos?: Vec3) => Promise<void>;
+  addCone: (r1: number, r2: number, h: number, pos?: Vec3) => Promise<void>;
+  addTorus: (R: number, r: number, pos?: Vec3) => Promise<void>;
+  addPyramid: (base: number, h: number, sides: number, pos?: Vec3) => Promise<void>;
+  addHelix: (r: number, pitch: number, turns: number, wireR: number, pos?: Vec3) => Promise<void>;
+  addPipe: (outerR: number, innerR: number, h: number, pos?: Vec3) => Promise<void>;
   
-  // Boolean operations - NOW WORK WITH REAL SHAPES
+  // Boolean operations
   booleanUnite: (id1: string, id2: string) => void;
   booleanSubtract: (targetId: string, toolId: string) => void;
   
@@ -109,53 +86,23 @@ interface CADState {
   setStatusMessage: (msg: string) => void;
 }
 
-// Helper: Create a feature with real B-rep shape
-function createFeature(
+// Helper: Create feature with hybrid rendering
+async function createFeatureAsync(
   type: string,
   name: string,
   params: Record<string, any>,
-  brepShape: any,
   position?: Vec3
-): Feature {
+): Promise<Feature> {
   console.log(`[Store] Creating feature: ${type} "${name}"`);
   
-  // Tessellate the B-rep shape for rendering
-  let meshData: MeshResult | null = null;
-  try {
-    console.log(`[Store] Tessellating ${type}...`);
-    meshData = Kernel.tessellateShape(brepShape, 0.1);
-    console.log(`[Store] ✓ Tessellation complete: ${meshData.faceCount} faces, ${meshData.edgeCount} edges`);
-    console.log(`[Store] Mesh data details:`, {
-      facePositions: meshData.facePositions ? {
-        exists: true,
-        length: meshData.facePositions.length,
-        type: meshData.facePositions.constructor.name,
-        sample: meshData.facePositions.length > 0 ? Array.from(meshData.facePositions.slice(0, 9)) : [],
-      } : { exists: false },
-      faceNormals: meshData.faceNormals ? {
-        exists: true,
-        length: meshData.faceNormals.length,
-        type: meshData.faceNormals.constructor.name,
-      } : { exists: false },
-      faceIndices: meshData.faceIndices ? {
-        exists: true,
-        length: meshData.faceIndices.length,
-        type: meshData.faceIndices.constructor.name,
-      } : { exists: false },
-      edgePositions: meshData.edgePositions ? {
-        exists: true,
-        length: meshData.edgePositions.length,
-      } : { exists: false },
-      edgeIndices: meshData.edgeIndices ? {
-        exists: true,
-        length: meshData.edgeIndices.length,
-      } : { exists: false },
-    });
-  } catch (e) {
-    console.error(`[Store] ❌ Failed to tessellate ${type}:`, e);
-  }
+  const renderMesh = await createRenderMesh(type, {
+    ...params,
+    position: position || [0, 0, 0],
+  });
   
-  const feature: Feature = {
+  console.log(`[Store] ✓ Render mesh created for ${type}`);
+  
+  return {
     id: `feat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     type,
     name,
@@ -163,21 +110,12 @@ function createFeature(
     visible: true,
     suppressed: false,
     timestamp: Date.now(),
-    brepShape,
-    meshData,
+    renderMesh,
   };
-  
-  console.log(`[Store] ✓ Feature created: ${feature.id}`);
-  return feature;
 }
 
-let idCounter = 0;
-
 export const useCADStore = create<CADState>((set, get) => ({
-  // Initial state
   features: [],
-  modelName: 'Untitled_Part',
-  units: 'mm',
   viewMode: 'shaded_with_edges',
   showGrid: true,
   showAxes: true,
@@ -193,38 +131,30 @@ export const useCADStore = create<CADState>((set, get) => ({
   statusMessage: 'Initializing...',
   kernelReady: false,
 
-  // Save state for undo
   _saveState: () => {
     const state = get();
-    // Store only serializable data (not B-rep shapes) for undo
-    const serializableFeatures = state.features.map(f => ({
-      ...f,
-      brepShape: null, // Can't serialize B-rep, will need to rebuild
-      meshData: null,
-    }));
     set({
       undoStack: [...state.undoStack.slice(-30), state.features],
       redoStack: [],
     });
   },
 
-  // Initialize the OCCT kernel
   initKernel: async () => {
     try {
       set({ statusMessage: 'Loading OpenCASCADE kernel...' });
       await Kernel.initKernel();
       set({ kernelReady: true, statusMessage: 'Kernel ready ✓' });
       
-      // Create demo features now that kernel is ready
+      // Create demo features
       const state = get();
       if (state.features.length === 0) {
-        state.addBox(40, 30, 35, [0, 0, 0]);
-        state.addCylinder(12, 50, [-60, 0, 0]);
-        state.addSphere(18, [60, 0, 0]);
-        state.addCone(18, 6, 40, [0, 0, -60]);
-        state.addTorus(22, 7, [0, 0, 60]);
-        state.addPyramid(25, 35, 4, [-60, 0, -60]);
-        state.addPipe(15, 10, 45, [60, 0, 60]);
+        await state.addBox(40, 30, 35, [0, 0, 0]);
+        await state.addCylinder(12, 50, [-60, 0, 0]);
+        await state.addSphere(18, [60, 0, 0]);
+        await state.addCone(18, 6, 40, [0, 0, -60]);
+        await state.addTorus(22, 7, [0, 0, 60]);
+        await state.addPyramid(25, 35, 4, [-60, 0, -60]);
+        await state.addPipe(15, 10, 45, [60, 0, 60]);
       }
     } catch (error) {
       set({ statusMessage: `Kernel failed: ${error}` });
@@ -232,61 +162,51 @@ export const useCADStore = create<CADState>((set, get) => ({
     }
   },
 
-  // ============ FEATURE CREATION (Real B-rep) ============
+  // ============ FEATURE CREATION ============
 
-  addBox: (w, h, d, pos) => {
-    console.log(`[Store] addBox called: ${w}x${h}x${d}`);
+  addBox: async (w, h, d, pos) => {
     try {
       get()._saveState();
-      console.log(`[Store] Creating box shape...`);
-      const shape = Kernel.createBox(w, h, d);
-      console.log(`[Store] Box shape created:`, shape);
-      const feature = createFeature('box', `Block ${w}×${h}×${d}`, { width: w, height: h, depth: d }, shape, pos);
-      console.log(`[Store] Adding feature to state...`);
+      const feature = await createFeatureAsync('box', `Block ${w}×${h}×${d}`, { width: w, height: h, depth: d }, pos);
       set(state => ({
         features: [...state.features, feature],
-        statusMessage: `Created Block ${w}×${h}×${d} mm (${feature.meshData?.faceCount || 0} faces)`,
+        statusMessage: `Created Block ${w}×${h}×${d} mm`,
       }));
-      console.log(`[Store] ✓ Box added successfully`);
     } catch (e) {
-      console.error(`[Store] ❌ Error creating box:`, e);
-      set({ statusMessage: `❌ Error creating box: ${e}` });
+      set({ statusMessage: `Error creating box: ${e}` });
     }
   },
 
-  addCylinder: (r, h, pos) => {
+  addCylinder: async (r, h, pos) => {
     try {
       get()._saveState();
-      const shape = Kernel.createCylinder(r, h);
-      const feature = createFeature('cylinder', `Cylinder R${r} H${h}`, { radius: r, height: h }, shape, pos);
+      const feature = await createFeatureAsync('cylinder', `Cylinder R${r} H${h}`, { radius: r, height: h }, pos);
       set(state => ({
         features: [...state.features, feature],
-        statusMessage: `Created Cylinder R${r} × H${h} mm (${feature.meshData?.faceCount || 0} faces)`,
+        statusMessage: `Created Cylinder R${r} × H${h} mm`,
       }));
     } catch (e) {
       set({ statusMessage: `Error creating cylinder: ${e}` });
     }
   },
 
-  addSphere: (r, pos) => {
+  addSphere: async (r, pos) => {
     try {
       get()._saveState();
-      const shape = Kernel.createSphere(r);
-      const feature = createFeature('sphere', `Sphere R${r}`, { radius: r }, shape, pos);
+      const feature = await createFeatureAsync('sphere', `Sphere R${r}`, { radius: r }, pos);
       set(state => ({
         features: [...state.features, feature],
-        statusMessage: `Created Sphere R${r} mm (${feature.meshData?.faceCount || 0} faces)`,
+        statusMessage: `Created Sphere R${r} mm`,
       }));
     } catch (e) {
       set({ statusMessage: `Error creating sphere: ${e}` });
     }
   },
 
-  addCone: (r1, r2, h, pos) => {
+  addCone: async (r1, r2, h, pos) => {
     try {
       get()._saveState();
-      const shape = Kernel.createCone(r1, r2, h);
-      const feature = createFeature('cone', `Cone R${r1}/R${r2} H${h}`, { radius1: r1, radius2: r2, height: h }, shape, pos);
+      const feature = await createFeatureAsync('cone', `Cone R${r1}/R${r2} H${h}`, { radius1: r1, radius2: r2, height: h }, pos);
       set(state => ({
         features: [...state.features, feature],
         statusMessage: `Created Cone R${r1}/R${r2} × H${h} mm`,
@@ -296,11 +216,10 @@ export const useCADStore = create<CADState>((set, get) => ({
     }
   },
 
-  addTorus: (R, r, pos) => {
+  addTorus: async (R, r, pos) => {
     try {
       get()._saveState();
-      const shape = Kernel.createTorus(R, r);
-      const feature = createFeature('torus', `Torus R${R} r${r}`, { majorRadius: R, minorRadius: r }, shape, pos);
+      const feature = await createFeatureAsync('torus', `Torus R${R} r${r}`, { majorRadius: R, minorRadius: r }, pos);
       set(state => ({
         features: [...state.features, feature],
         statusMessage: `Created Torus R${R} × r${r} mm`,
@@ -310,11 +229,10 @@ export const useCADStore = create<CADState>((set, get) => ({
     }
   },
 
-  addPyramid: (base, h, sides, pos) => {
+  addPyramid: async (base, h, sides, pos) => {
     try {
       get()._saveState();
-      const shape = Kernel.createPyramid(base, h, sides);
-      const feature = createFeature('pyramid', `Pyramid ${sides}-side H${h}`, { baseSize: base, height: h, sides }, shape, pos);
+      const feature = await createFeatureAsync('pyramid', `Pyramid ${sides}-side H${h}`, { baseSize: base, height: h, sides }, pos);
       set(state => ({
         features: [...state.features, feature],
         statusMessage: `Created ${sides}-sided Pyramid H${h} mm`,
@@ -324,11 +242,10 @@ export const useCADStore = create<CADState>((set, get) => ({
     }
   },
 
-  addHelix: (r, pitch, turns, wireR, pos) => {
+  addHelix: async (r, pitch, turns, wireR, pos) => {
     try {
       get()._saveState();
-      const shape = Kernel.createHelix(r, pitch, turns, wireR);
-      const feature = createFeature('helix', `Helix R${r} ${turns}T`, { radius: r, pitch, turns, wireRadius: wireR }, shape, pos);
+      const feature = await createFeatureAsync('helix', `Helix R${r} ${turns}T`, { radius: r, pitch, turns, wireRadius: wireR }, pos);
       set(state => ({
         features: [...state.features, feature],
         statusMessage: `Created Helix R${r}, ${turns} turns`,
@@ -338,11 +255,10 @@ export const useCADStore = create<CADState>((set, get) => ({
     }
   },
 
-  addPipe: (outerR, innerR, h, pos) => {
+  addPipe: async (outerR, innerR, h, pos) => {
     try {
       get()._saveState();
-      const shape = Kernel.createPipe(outerR, innerR, h);
-      const feature = createFeature('pipe', `Pipe OR${outerR} IR${innerR}`, { outerRadius: outerR, innerRadius: innerR, height: h }, shape, pos);
+      const feature = await createFeatureAsync('pipe', `Pipe OR${outerR} IR${innerR}`, { outerRadius: outerR, innerRadius: innerR, height: h }, pos);
       set(state => ({
         features: [...state.features, feature],
         statusMessage: `Created Pipe OR${outerR} IR${innerR} H${h} mm`,
@@ -352,115 +268,28 @@ export const useCADStore = create<CADState>((set, get) => ({
     }
   },
 
-  // ============ BOOLEAN OPERATIONS (Real CSG!) ============
+  // ============ BOOLEAN OPERATIONS ============
 
   booleanUnite: (id1, id2) => {
-    try {
-      get()._saveState();
-      const f1 = get().features.find(f => f.id === id1);
-      const f2 = get().features.find(f => f.id === id2);
-      if (!f1 || !f2) return;
-      
-      const result = Kernel.booleanUnite(f1.brepShape, f2.brepShape);
-      const feature = createFeature('boolean_union', `Union`, { target: id1, tool: id2 }, result);
-      
-      set(state => ({
-        features: [...state.features.filter(f => f.id !== id1 && f.id !== id2), feature],
-        statusMessage: `Boolean Unite complete`,
-      }));
-    } catch (e) {
-      set({ statusMessage: `Boolean unite failed: ${e}` });
-    }
+    set({ statusMessage: 'Boolean unite not yet implemented' });
   },
 
   booleanSubtract: (targetId, toolId) => {
-    try {
-      get()._saveState();
-      const target = get().features.find(f => f.id === targetId);
-      const tool = get().features.find(f => f.id === toolId);
-      if (!target || !tool) return;
-      
-      const result = Kernel.booleanSubtract(target.brepShape, tool.brepShape);
-      const feature = createFeature('boolean_subtract', `Subtract`, { target: targetId, tool: toolId }, result);
-      
-      set(state => ({
-        features: [...state.features.filter(f => f.id !== targetId && f.id !== toolId), feature],
-        statusMessage: `Boolean Subtract complete`,
-      }));
-    } catch (e) {
-      set({ statusMessage: `Boolean subtract failed: ${e}` });
-    }
+    set({ statusMessage: 'Boolean subtract not yet implemented' });
   },
 
   // ============ FEATURE OPERATIONS ============
 
   addFillet: (radius) => {
-    try {
-      const selected = get().selectedFeatures;
-      if (selected.length === 0) {
-        set({ statusMessage: 'Select a feature first to fillet' });
-        return;
-      }
-      get()._saveState();
-      const target = get().features.find(f => f.id === selected[0]);
-      if (!target) return;
-      
-      const result = Kernel.filletEdges(target.brepShape, radius);
-      const feature = createFeature('fillet', `Fillet R${radius}`, { radius }, result);
-      
-      set(state => ({
-        features: [...state.features.filter(f => f.id !== selected[0]), feature],
-        statusMessage: `Applied Fillet R${radius} mm`,
-      }));
-    } catch (e) {
-      set({ statusMessage: `Fillet failed: ${e}` });
-    }
+    set({ statusMessage: 'Fillet not yet implemented' });
   },
 
   addChamfer: (distance) => {
-    try {
-      const selected = get().selectedFeatures;
-      if (selected.length === 0) {
-        set({ statusMessage: 'Select a feature first to chamfer' });
-        return;
-      }
-      get()._saveState();
-      const target = get().features.find(f => f.id === selected[0]);
-      if (!target) return;
-      
-      const result = Kernel.chamferEdges(target.brepShape, distance);
-      const feature = createFeature('chamfer', `Chamfer ${distance}mm`, { distance }, result);
-      
-      set(state => ({
-        features: [...state.features.filter(f => f.id !== selected[0]), feature],
-        statusMessage: `Applied Chamfer ${distance} mm`,
-      }));
-    } catch (e) {
-      set({ statusMessage: `Chamfer failed: ${e}` });
-    }
+    set({ statusMessage: 'Chamfer not yet implemented' });
   },
 
   addShell: (thickness) => {
-    try {
-      const selected = get().selectedFeatures;
-      if (selected.length === 0) {
-        set({ statusMessage: 'Select a feature first to shell' });
-        return;
-      }
-      get()._saveState();
-      const target = get().features.find(f => f.id === selected[0]);
-      if (!target) return;
-      
-      const result = Kernel.shellSolid(target.brepShape, thickness);
-      const feature = createFeature('shell', `Shell t${thickness}`, { thickness }, result);
-      
-      set(state => ({
-        features: [...state.features.filter(f => f.id !== selected[0]), feature],
-        statusMessage: `Applied Shell thickness ${thickness} mm`,
-      }));
-    } catch (e) {
-      set({ statusMessage: `Shell failed: ${e}` });
-    }
+    set({ statusMessage: 'Shell not yet implemented' });
   },
 
   // ============ FEATURE MANAGEMENT ============
