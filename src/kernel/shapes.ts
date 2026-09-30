@@ -41,7 +41,25 @@ export function tessellateShape(shape: BRepShape, tolerance: number = 0.1): Mesh
   try {
     mesh = shape.mesh({ tolerance, angularTolerance: 30 });
     console.log('[Tessellate] Mesh created:', mesh);
+    console.log('[Tessellate] Mesh type:', typeof mesh);
+    console.log('[Tessellate] Mesh constructor:', mesh?.constructor?.name);
     console.log('[Tessellate] Mesh keys:', Object.keys(mesh || {}));
+    
+    // Log all properties of the mesh object
+    if (mesh) {
+      console.log('[Tessellate] Mesh properties:', {
+        hasPositions: 'positions' in mesh,
+        hasNormals: 'normals' in mesh,
+        hasIndices: 'indices' in mesh,
+        hasFaceGroups: 'faceGroups' in mesh,
+        positionsType: mesh.positions?.constructor?.name,
+        positionsLength: mesh.positions?.length,
+        normalsType: mesh.normals?.constructor?.name,
+        normalsLength: mesh.normals?.length,
+        indicesType: mesh.indices?.constructor?.name,
+        indicesLength: mesh.indices?.length,
+      });
+    }
   } catch (e) {
     console.error('[Tessellate] Failed to create mesh:', e);
     throw e;

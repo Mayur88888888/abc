@@ -22,10 +22,27 @@ function BRepMesh({ feature, isSelected, isHovered }: {
 
   const meshData = feature.meshData as MeshResult | null;
   
-  // Debug: Log mesh data
+  // Debug: Log mesh data structure
   useEffect(() => {
     console.log(`[Viewport] Rendering feature: ${feature.name}`, {
       hasMeshData: !!meshData,
+      meshDataKeys: meshData ? Object.keys(meshData) : [],
+      facePositions: meshData?.facePositions ? {
+        exists: true,
+        length: meshData.facePositions.length,
+        type: meshData.facePositions.constructor.name,
+        sample: meshData.facePositions.length > 0 ? Array.from(meshData.facePositions.slice(0, 6)) : [],
+      } : { exists: false },
+      faceNormals: meshData?.faceNormals ? {
+        exists: true,
+        length: meshData.faceNormals.length,
+        type: meshData.faceNormals.constructor.name,
+      } : { exists: false },
+      faceIndices: meshData?.faceIndices ? {
+        exists: true,
+        length: meshData.faceIndices.length,
+        type: meshData.faceIndices.constructor.name,
+      } : { exists: false },
       faceCount: meshData?.faceCount || 0,
       edgeCount: meshData?.edgeCount || 0,
       position: feature.params.position,
@@ -34,19 +51,44 @@ function BRepMesh({ feature, isSelected, isHovered }: {
   
   // Create Three.js geometry from tessellated mesh data
   const geometry = useMemo(() => {
+    console.log(`[Viewport] Creating geometry for: ${feature.name}`, {
+      hasMeshData: !!meshData,
+      hasPositions: !!meshData?.facePositions,
+      positionsLength: meshData?.facePositions?.length || 0,
+      hasNormals: !!meshData?.faceNormals,
+      normalsLength: meshData?.faceNormals?.length || 0,
+      hasIndices: !!meshData?.faceIndices,
+      indicesLength: meshData?.faceIndices?.length || 0,
+    });
+    
     if (!meshData || !meshData.facePositions || meshData.facePositions.length === 0) {
+      console.warn(`[Viewport] No face positions for: ${feature.name}`);
       return null;
     }
     
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.BufferAttribute(meshData.facePositions, 3));
-    geom.setAttribute('normal', new THREE.BufferAttribute(meshData.faceNormals, 3));
-    if (meshData.faceIndices && meshData.faceIndices.length > 0) {
-      geom.setIndex(new THREE.BufferAttribute(meshData.faceIndices, 1));
+    try {
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.BufferAttribute(meshData.facePositions, 3));
+      
+      if (meshData.faceNormals && meshData.faceNormals.length > 0) {
+        geom.setAttribute('normal', new THREE.BufferAttribute(meshData.faceNormals, 3));
+      }
+      
+      if (meshData.faceIndices && meshData.faceIndices.length > 0) {
+        geom.setIndex(new THREE.BufferAttribute(meshData.faceIndices, 1));
+      }
+      
+      geom.computeBoundingSphere();
+      console.log(`[Viewport] ✓ Geometry created for: ${feature.name}`, {
+        vertices: geom.attributes.position?.count || 0,
+        indices: geom.index?.count || 0,
+      });
+      return geom;
+    } catch (error) {
+      console.error(`[Viewport] Failed to create geometry for: ${feature.name}`, error);
+      return null;
     }
-    geom.computeBoundingSphere();
-    return geom;
-  }, [meshData]);
+  }, [meshData, feature.name]);
 
   // Create edge geometry
   const edgeGeometry = useMemo(() => {
