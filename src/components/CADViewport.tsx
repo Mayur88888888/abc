@@ -22,6 +22,16 @@ function BRepMesh({ feature, isSelected, isHovered }: {
 
   const meshData = feature.meshData as MeshResult | null;
   
+  // Debug: Log mesh data
+  useEffect(() => {
+    console.log(`[Viewport] Rendering feature: ${feature.name}`, {
+      hasMeshData: !!meshData,
+      faceCount: meshData?.faceCount || 0,
+      edgeCount: meshData?.edgeCount || 0,
+      position: feature.params.position,
+    });
+  }, [feature, meshData]);
+  
   // Create Three.js geometry from tessellated mesh data
   const geometry = useMemo(() => {
     if (!meshData || !meshData.facePositions || meshData.facePositions.length === 0) {
@@ -52,7 +62,26 @@ function BRepMesh({ feature, isSelected, isHovered }: {
     return geom;
   }, [meshData]);
 
-  if (!feature.visible || feature.suppressed || !geometry) return null;
+  // Show placeholder if no geometry
+  if (!geometry) {
+    console.warn(`[Viewport] No geometry for feature: ${feature.name}`);
+    const pos = feature.params.position || [0, 0, 0];
+    return (
+      <group position={[pos[0], pos[2], -pos[1]]}>
+        <mesh>
+          <boxGeometry args={[10, 10, 10]} />
+          <meshStandardMaterial color="#ff0000" wireframe transparent opacity={0.5} />
+        </mesh>
+        <Html center>
+          <div className="text-red-500 text-xs bg-black/80 px-2 py-1 rounded">
+            No geometry
+          </div>
+        </Html>
+      </group>
+    );
+  }
+
+  if (!feature.visible || feature.suppressed) return null;
 
   const pos = feature.params.position || [0, 0, 0];
   
@@ -233,6 +262,9 @@ function SceneContent() {
 
 export default function CADViewport() {
   const clearSelection = useCADStore(s => s.clearSelection);
+  const features = useCADStore(s => s.features);
+  const kernelReady = useCADStore(s => s.kernelReady);
+  const statusMessage = useCADStore(s => s.statusMessage);
 
   return (
     <div className="w-full h-full relative" onContextMenu={(e) => e.preventDefault()}>
@@ -247,6 +279,48 @@ export default function CADViewport() {
         <fog attach="fog" args={['#0f172a', 200, 500]} />
         <SceneContent />
       </Canvas>
+      
+      {/* Debug overlay */}
+      <div className="absolute top-3 left-3 z-20">
+        <div className="bg-black/80 backdrop-blur-sm rounded-lg border border-white/10 px-3 py-2 text-xs font-mono">
+          <div className="flex items-center gap-2 mb-1">
+            <div className={`w-2 h-2 rounded-full ${kernelReady ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
+            <span className="text-gray-300">
+              Kernel: {kernelReady ? 'Ready ✓' : 'Failed ✗'}
+            </span>
+          </div>
+          <div className="text-gray-500">
+            Features: {features.length}
+          </div>
+          <div className="text-gray-500 text-[10px] mt-1 max-w-[200px] truncate">
+            {statusMessage}
+          </div>
+          {!kernelReady && (
+            <button
+              onClick={() => {
+                console.log('[UI] Manual kernel init triggered');
+                useCADStore.getState().initKernel();
+              }}
+              className="mt-2 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] rounded pointer-events-auto"
+            >
+              Retry Kernel Init
+            </button>
+          )}
+          <button
+            onClick={() => {
+              const logs = [
+                'Check browser console (F12) for detailed logs',
+                'Look for [OCCT], [Store], [Viewport] messages',
+                'Share logs if issues persist'
+              ];
+              alert('Debug Info:\n\n' + logs.join('\n\n'));
+            }}
+            className="mt-1 px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white text-[10px] rounded pointer-events-auto block"
+          >
+            Show Debug Help
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

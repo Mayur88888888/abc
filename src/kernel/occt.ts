@@ -29,35 +29,45 @@ function reportStatus(msg: string) {
  * Must be called once before any CAD operations.
  */
 export async function initKernel(): Promise<OCInstance> {
-  if (isReady && ocInstance) return ocInstance;
-  if (initPromise) return initPromise;
+  if (isReady && ocInstance) {
+    console.log('[OCCT] Already initialized');
+    return ocInstance;
+  }
+  if (initPromise) {
+    console.log('[OCCT] Initialization in progress...');
+    return initPromise;
+  }
 
   reportStatus('Loading OpenCASCADE kernel...');
+  console.log('[OCCT] Starting kernel initialization...');
 
   initPromise = (async () => {
     try {
-      // Import the OCCT loader and WASM URL
-      const [{ default: initOC }, wasmUrl] = await Promise.all([
-        import('replicad-opencascadejs'),
-        import('replicad-opencascadejs/wasm?url').then(m => m.default),
-      ]);
+      console.log('[OCCT] Step 1: Importing replicad-opencascadejs...');
+      
+      // Import the OCCT loader
+      const opencascadeModule = await import('replicad-opencascadejs');
+      const initOC = opencascadeModule.default;
+      console.log('[OCCT] Module imported successfully');
 
       reportStatus('Compiling WebAssembly...');
+      console.log('[OCCT] Step 2: Initializing WASM...');
 
-      // Initialize OCCT with WASM module URL
-      const OC = await initOC({
-        locateFile: () => wasmUrl,
-      });
+      // Initialize OCCT - let it auto-locate the WASM file
+      const OC = await initOC();
 
+      console.log('[OCCT] Step 3: Injecting into replicad...');
       // Inject into replicad
       setOC(OC);
       ocInstance = OC;
       isReady = true;
 
+      console.log('[OCCT] Step 4: Kernel ready!');
       reportStatus('OpenCASCADE kernel ready ✓');
       return OC;
     } catch (error) {
-      reportStatus(`Kernel init failed: ${error}`);
+      console.error('[OCCT] ❌ Initialization failed:', error);
+      reportStatus(`❌ Kernel init failed: ${error}`);
       initPromise = null;
       throw error;
     }
