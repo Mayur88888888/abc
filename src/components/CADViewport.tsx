@@ -1,111 +1,34 @@
-// CAD Viewport - Renders real B-rep shapes tessellated from OpenCASCADE
+// CAD Viewport - Renders features using hybrid approach (Three.js primitives + B-rep)
 import { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewport, Html, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { useCADStore } from '../store/cadStore';
-import type { MeshResult } from '../kernel';
 
-// Render a tessellated B-rep shape
-function BRepMesh({ feature, isSelected, isHovered }: {
+// Render a feature using its renderMesh
+function FeatureMesh({ feature, isSelected, isHovered }: {
   feature: any;
   isSelected: boolean;
   isHovered: boolean;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const edgesRef = useRef<THREE.LineSegments>(null);
   const viewMode = useCADStore(s => s.viewMode);
   const selectFeature = useCADStore(s => s.selectFeature);
   const setHoveredFeature = useCADStore(s => s.setHoveredFeature);
-  const selectionMode = useCADStore(s => s.selectionMode);
   const setStatusMessage = useCADStore(s => s.setStatusMessage);
 
-  const meshData = feature.meshData as MeshResult | null;
+  const renderMesh = feature.renderMesh;
   
-  // Debug: Log mesh data structure
   useEffect(() => {
     console.log(`[Viewport] Rendering feature: ${feature.name}`, {
-      hasMeshData: !!meshData,
-      meshDataKeys: meshData ? Object.keys(meshData) : [],
-      facePositions: meshData?.facePositions ? {
-        exists: true,
-        length: meshData.facePositions.length,
-        type: meshData.facePositions.constructor.name,
-        sample: meshData.facePositions.length > 0 ? Array.from(meshData.facePositions.slice(0, 6)) : [],
-      } : { exists: false },
-      faceNormals: meshData?.faceNormals ? {
-        exists: true,
-        length: meshData.faceNormals.length,
-        type: meshData.faceNormals.constructor.name,
-      } : { exists: false },
-      faceIndices: meshData?.faceIndices ? {
-        exists: true,
-        length: meshData.faceIndices.length,
-        type: meshData.faceIndices.constructor.name,
-      } : { exists: false },
-      faceCount: meshData?.faceCount || 0,
-      edgeCount: meshData?.edgeCount || 0,
-      position: feature.params.position,
+      hasRenderMesh: !!renderMesh,
+      hasGeometry: !!renderMesh?.geometry,
+      position: renderMesh?.position,
+      type: renderMesh?.metadata?.type,
     });
-  }, [feature, meshData]);
-  
-  // Create Three.js geometry from tessellated mesh data
-  const geometry = useMemo(() => {
-    console.log(`[Viewport] Creating geometry for: ${feature.name}`, {
-      hasMeshData: !!meshData,
-      hasPositions: !!meshData?.facePositions,
-      positionsLength: meshData?.facePositions?.length || 0,
-      hasNormals: !!meshData?.faceNormals,
-      normalsLength: meshData?.faceNormals?.length || 0,
-      hasIndices: !!meshData?.faceIndices,
-      indicesLength: meshData?.faceIndices?.length || 0,
-    });
-    
-    if (!meshData || !meshData.facePositions || meshData.facePositions.length === 0) {
-      console.warn(`[Viewport] No face positions for: ${feature.name}`);
-      return null;
-    }
-    
-    try {
-      const geom = new THREE.BufferGeometry();
-      geom.setAttribute('position', new THREE.BufferAttribute(meshData.facePositions, 3));
-      
-      if (meshData.faceNormals && meshData.faceNormals.length > 0) {
-        geom.setAttribute('normal', new THREE.BufferAttribute(meshData.faceNormals, 3));
-      }
-      
-      if (meshData.faceIndices && meshData.faceIndices.length > 0) {
-        geom.setIndex(new THREE.BufferAttribute(meshData.faceIndices, 1));
-      }
-      
-      geom.computeBoundingSphere();
-      console.log(`[Viewport] ✓ Geometry created for: ${feature.name}`, {
-        vertices: geom.attributes.position?.count || 0,
-        indices: geom.index?.count || 0,
-      });
-      return geom;
-    } catch (error) {
-      console.error(`[Viewport] Failed to create geometry for: ${feature.name}`, error);
-      return null;
-    }
-  }, [meshData, feature.name]);
+  }, [feature, renderMesh]);
 
-  // Create edge geometry
-  const edgeGeometry = useMemo(() => {
-    if (!meshData || !meshData.edgePositions || meshData.edgePositions.length === 0) {
-      return null;
-    }
-    
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.BufferAttribute(meshData.edgePositions, 3));
-    if (meshData.edgeIndices && meshData.edgeIndices.length > 0) {
-      geom.setIndex(new THREE.BufferAttribute(meshData.edgeIndices, 1));
-    }
-    return geom;
-  }, [meshData]);
-
-  // Show placeholder if no geometry
-  if (!geometry) {
+  if (!feature.visible || feature.suppressed || !renderMesh || !renderMesh.geometry) {
     console.warn(`[Viewport] No geometry for feature: ${feature.name}`);
     const pos = feature.params.position || [0, 0, 0];
     return (
@@ -123,27 +46,22 @@ function BRepMesh({ feature, isSelected, isHovered }: {
     );
   }
 
-  if (!feature.visible || feature.suppressed) return null;
-
-  const pos = feature.params.position || [0, 0, 0];
+  const pos = renderMesh.position || [0, 0, 0];
+  const rot = renderMesh.rotation || [0, 0, 0];
   
   // Color based on state
   const color = isSelected ? '#8b5cf6' : isHovered ? '#06b6d4' : '#94a3b8';
   const isWireframe = viewMode === 'wireframe';
-  const showEdges = viewMode === 'shaded_with_edges' || selectionMode === 'edge';
 
   return (
-    <group position={[pos[0], pos[2], -pos[1]]}>
-      {/* Main mesh */}
+    <group position={[pos[0], pos[2], -pos[1]]} rotation={rot}>
       <mesh
         ref={meshRef}
-        geometry={geometry}
+        geometry={renderMesh.geometry}
         onClick={(e) => {
           e.stopPropagation();
           selectFeature(feature.id);
-          if (meshData) {
-            setStatusMessage(`Selected ${feature.name} (${meshData.faceCount} faces, ${meshData.edgeCount} edges)`);
-          }
+          setStatusMessage(`Selected ${feature.name}`);
         }}
         onPointerOver={(e) => {
           e.stopPropagation();
@@ -158,22 +76,22 @@ function BRepMesh({ feature, isSelected, isHovered }: {
           metalness={0.2}
           roughness={0.7}
           wireframe={isWireframe}
-          transparent={isWireframe}
-          opacity={isWireframe ? 0.5 : 1}
           side={THREE.DoubleSide}
         />
       </mesh>
 
-      {/* Edge overlay */}
-      {showEdges && edgeGeometry && (
-        <lineSegments ref={edgesRef} geometry={edgeGeometry}>
-          <lineBasicMaterial color="#1e293b" transparent opacity={0.4} />
+      {/* Edge overlay for shaded_with_edges mode */}
+      {viewMode === 'shaded_with_edges' && (
+        <lineSegments>
+          <edgesGeometry args={[renderMesh.geometry]} />
+          <lineBasicMaterial color="#1e293b" transparent opacity={0.3} />
         </lineSegments>
       )}
 
       {/* Selection outline */}
-      {isSelected && edgeGeometry && (
-        <lineSegments geometry={edgeGeometry}>
+      {isSelected && (
+        <lineSegments>
+          <edgesGeometry args={[renderMesh.geometry]} />
           <lineBasicMaterial color="#8b5cf6" linewidth={2} />
         </lineSegments>
       )}
@@ -204,7 +122,7 @@ function AxesHelper() {
   );
 }
 
-// Cursor tracker - throttled
+// Cursor tracker
 function CursorTracker() {
   const { camera, raycaster, pointer } = useThree();
   const setCursorPosition = useCADStore(s => s.setCursorPosition);
@@ -251,13 +169,11 @@ function SceneContent() {
 
   return (
     <>
-      {/* Lighting */}
       <ambientLight intensity={0.4} />
       <directionalLight position={[50, 100, 50]} intensity={1} castShadow />
       <directionalLight position={[-50, 50, -50]} intensity={0.3} />
       <hemisphereLight args={['#b1e1ff', '#b97a20', 0.25]} />
 
-      {/* Grid */}
       {showGrid && (
         <Grid
           args={[200, 200]}
@@ -275,9 +191,8 @@ function SceneContent() {
 
       <AxesHelper />
 
-      {/* Render all B-rep features */}
       {features.map((feature) => (
-        <BRepMesh
+        <FeatureMesh
           key={feature.id}
           feature={feature}
           isSelected={selectedFeatures.includes(feature.id)}
@@ -285,7 +200,6 @@ function SceneContent() {
         />
       ))}
 
-      {/* Ground for shadows */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
         <planeGeometry args={[500, 500]} />
         <shadowMaterial opacity={0.15} />
@@ -328,7 +242,7 @@ export default function CADViewport() {
           <div className="flex items-center gap-2 mb-1">
             <div className={`w-2 h-2 rounded-full ${kernelReady ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
             <span className="text-gray-300">
-              Kernel: {kernelReady ? 'Ready ✓' : 'Failed ✗'}
+              Kernel: {kernelReady ? 'Ready ✓' : 'Loading...'}
             </span>
           </div>
           <div className="text-gray-500">
@@ -337,30 +251,6 @@ export default function CADViewport() {
           <div className="text-gray-500 text-[10px] mt-1 max-w-[200px] truncate">
             {statusMessage}
           </div>
-          {!kernelReady && (
-            <button
-              onClick={() => {
-                console.log('[UI] Manual kernel init triggered');
-                useCADStore.getState().initKernel();
-              }}
-              className="mt-2 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] rounded pointer-events-auto"
-            >
-              Retry Kernel Init
-            </button>
-          )}
-          <button
-            onClick={() => {
-              const logs = [
-                'Check browser console (F12) for detailed logs',
-                'Look for [OCCT], [Store], [Viewport] messages',
-                'Share logs if issues persist'
-              ];
-              alert('Debug Info:\n\n' + logs.join('\n\n'));
-            }}
-            className="mt-1 px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white text-[10px] rounded pointer-events-auto block"
-          >
-            Show Debug Help
-          </button>
         </div>
       </div>
     </div>

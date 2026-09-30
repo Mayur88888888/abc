@@ -27,3 +27,5 @@ export {
   tessellateShape,
 } from './shapes';
 export type { MeshResult, SketchCommand } from './shapes';
+export { createRenderMesh, createPrimitiveGeometry, createBRepMesh } from './renderer';
+export type { RenderMesh } from './renderer';
