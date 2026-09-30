@@ -45,16 +45,31 @@ export async function initKernel(): Promise<OCInstance> {
     try {
       console.log('[OCCT] Step 1: Importing replicad-opencascadejs...');
       
-      // Import the OCCT loader
-      const opencascadeModule = await import('replicad-opencascadejs');
+      // Import the OCCT loader and WASM file URL
+      const [opencascadeModule, wasmUrl] = await Promise.all([
+        import('replicad-opencascadejs'),
+        import('replicad-opencascadejs/wasm?url')
+      ]);
+      
       const initOC = opencascadeModule.default;
+      const wasmPath = wasmUrl.default;
+      
       console.log('[OCCT] Module imported successfully');
+      console.log('[OCCT] WASM path:', wasmPath);
 
       reportStatus('Compiling WebAssembly...');
       console.log('[OCCT] Step 2: Initializing WASM...');
 
-      // Initialize OCCT - let it auto-locate the WASM file
-      const OC = await initOC();
+      // Initialize OCCT with explicit WASM path
+      const OC = await initOC({
+        locateFile: (file: string) => {
+          if (file.endsWith('.wasm')) {
+            console.log('[OCCT] locateFile called for:', file, '-> returning:', wasmPath);
+            return wasmPath;
+          }
+          return file;
+        }
+      });
 
       console.log('[OCCT] Step 3: Injecting into replicad...');
       // Inject into replicad
