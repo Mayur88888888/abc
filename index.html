@@ -47,6 +47,13 @@
         font-size: 14px;
         letter-spacing: 0.05em;
       }
+      #loading-screen .subtext {
+        margin-top: 8px;
+        color: #4b5563;
+        font-size: 11px;
+        letter-spacing: 0.03em;
+        font-family: monospace;
+      }
       @keyframes spin {
         to { transform: rotate(360deg); }
       }
@@ -60,6 +67,7 @@
     <div id="loading-screen">
       <div class="spinner"></div>
       <div class="text">Loading WebCAD Pro...</div>
+      <div class="subtext" id="kernel-status">Initializing OpenCASCADE kernel...</div>
     </div>
 
     <div id="root"></div>

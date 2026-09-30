@@ -142,7 +142,6 @@ export default function Ribbon() {
   const [hoveredCmd, setHoveredCmd] = useState<string | null>(null);
   const openDialog = useCADStore(s => s.openDialog);
   const setViewMode = useCADStore(s => s.setViewMode);
-  const startSketch = useCADStore(s => s.startSketch);
   const undo = useCADStore(s => s.undo);
   const redo = useCADStore(s => s.redo);
   const setStatusMessage = useCADStore(s => s.setStatusMessage);
@@ -174,8 +173,7 @@ export default function Ribbon() {
 
     // Sketch command
     if (cmdId === 'sketch') {
-      startSketch('XY');
-      setStatusMessage('Sketch mode activated - select a plane');
+      setStatusMessage('Sketch mode - coming soon');
       return;
     }
 

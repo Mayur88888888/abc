@@ -3,14 +3,12 @@ import { useCADStore } from '../store/cadStore';
 export default function StatusBar() {
   const cursorPosition = useCADStore(s => s.cursorPosition);
   const statusMessage = useCADStore(s => s.statusMessage);
-  const model = useCADStore(s => s.model);
+  const units = useCADStore(s => s.units);
   const viewMode = useCADStore(s => s.viewMode);
   const selectedFeatures = useCADStore(s => s.selectedFeatures);
-  const snapToGrid = useCADStore(s => s.snapToGrid);
-  const gridSize = useCADStore(s => s.gridSize);
-  const setSnapToGrid = useCADStore(s => s.setSnapToGrid);
   const selectionMode = useCADStore(s => s.selectionMode);
   const setSelectionMode = useCADStore(s => s.setSelectionMode);
+  const features = useCADStore(s => s.features);
 
   const selectionModeLabels = {
     body: 'Body',
@@ -53,7 +51,7 @@ export default function StatusBar() {
 
       <div className="flex-1" />
 
-      {/* Selection mode toggle - NEW */}
+      {/* Selection mode toggle */}
       <div className="flex items-center gap-1">
         <span className="text-gray-600 mr-1">Mode:</span>
         {(['body', 'face', 'edge', 'vertex'] as const).map((mode) => (
@@ -73,29 +71,11 @@ export default function StatusBar() {
 
       <div className="w-px h-3 bg-white/10" />
 
-      {/* Right side controls */}
+      {/* Right side info */}
       <div className="flex items-center gap-3">
-        {/* Snap toggle */}
-        <button
-          onClick={() => setSnapToGrid(!snapToGrid)}
-          className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${
-            snapToGrid ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'text-gray-500 hover:text-white'
-          }`}
-        >
-          ⊞ Snap {gridSize}mm
-        </button>
-
-        {/* Units */}
-        <span className="text-gray-500">{model.units.toUpperCase()}</span>
-
-        {/* View mode */}
+        <span className="text-gray-500">{units.toUpperCase()}</span>
         <span className="text-gray-500 capitalize">{viewMode.replace(/_/g, ' ')}</span>
-
-        {/* Feature count */}
-        <span className="text-gray-500">{model.features.length} features</span>
-
-        {/* Model name */}
-        <span className="text-gray-600">{model.name}</span>
+        <span className="text-gray-500">{features.length} features</span>
       </div>
     </div>
   );

@@ -187,16 +187,11 @@ export default function CommandDialog() {
   const addTorus = useCADStore(s => s.addTorus);
   const addPyramid = useCADStore(s => s.addPyramid);
   const addHelix = useCADStore(s => s.addHelix);
-  const addExtrude = useCADStore(s => s.addExtrude);
-  const addRevolve = useCADStore(s => s.addRevolve);
   const addFillet = useCADStore(s => s.addFillet);
   const addChamfer = useCADStore(s => s.addChamfer);
   const addShell = useCADStore(s => s.addShell);
-  const addHole = useCADStore(s => s.addHole);
   const addPipe = useCADStore(s => s.addPipe);
-  const addMirror = useCADStore(s => s.addMirror);
-  const addLinearPattern = useCADStore(s => s.addLinearPattern);
-  const addCircularPattern = useCADStore(s => s.addCircularPattern);
+  const setStatusMessage = useCADStore(s => s.setStatusMessage);
 
   const config = dialogOpen ? dialogConfigs[dialogOpen] : null;
   const [values, setValues] = useState<Record<string, number | string>>({});
@@ -304,35 +299,21 @@ export default function CommandDialog() {
       case 'helix':
         addHelix(getNum('radius'), getNum('pitch'), getNum('turns'), getNum('wireRadius'), position);
         break;
-      case 'extrude':
-        addExtrude(getNum('distance'), [0, 1, 0], getNum('taper'), position);
-        break;
-      case 'revolve':
-        addRevolve([0, 1, 0], getNum('angle'), position);
-        break;
       case 'fillet':
-        addFillet(getNum('radius'), position);
+        addFillet(getNum('radius'));
         break;
       case 'chamfer':
-        addChamfer(getNum('distance'), getNum('angle'), position);
+        addChamfer(getNum('distance'));
         break;
       case 'shell':
-        addShell(getNum('thickness'), position);
-        break;
-      case 'hole':
-        addHole(position, getNum('diameter'), getNum('depth'), getValue('holeType') as string);
+        addShell(getNum('thickness'));
         break;
       case 'pipe':
         addPipe(getNum('outerRadius'), getNum('innerRadius'), getNum('height'), position);
         break;
-      case 'mirror':
-        addMirror(getValue('plane') as string, position);
-        break;
-      case 'linear_pattern':
-        addLinearPattern([1, 0, 0], getNum('count'), getNum('spacing'), position);
-        break;
-      case 'circular_pattern':
-        addCircularPattern([0, 1, 0], getNum('count'), getNum('angle'), position);
+      default:
+        // Commands not yet implemented with kernel
+        setStatusMessage(`Command "${dialogOpen}" requires kernel support - coming soon`);
         break;
     }
     closeDialog();

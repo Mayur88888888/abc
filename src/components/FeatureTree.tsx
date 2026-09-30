@@ -28,13 +28,21 @@ const featureIcons: Record<string, string> = {
 };
 
 export default function FeatureTree() {
-  const features = useCADStore(s => s.model.features);
+  const features = useCADStore(s => s.features);
   const selectedFeatures = useCADStore(s => s.selectedFeatures);
   const selectFeature = useCADStore(s => s.selectFeature);
   const deleteFeature = useCADStore(s => s.deleteFeature);
   const toggleFeatureVisibility = useCADStore(s => s.toggleFeatureVisibility);
-  const suppressFeature = useCADStore(s => s.suppressFeature);
-  const renameFeature = useCADStore(s => s.renameFeature);
+  const suppressFeature = (id: string) => {
+    useCADStore.setState(s => ({
+      features: s.features.map(f => f.id === id ? { ...f, suppressed: !f.suppressed } : f)
+    }));
+  };
+  const renameFeature = (id: string, name: string) => {
+    useCADStore.setState(s => ({
+      features: s.features.map(f => f.id === id ? { ...f, name } : f)
+    }));
+  };
   const openDialog = useCADStore(s => s.openDialog);
   const [expanded, setExpanded] = useState(true);
   const [renaming, setRenaming] = useState<string | null>(null);
