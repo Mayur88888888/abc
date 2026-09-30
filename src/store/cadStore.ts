@@ -117,15 +117,19 @@ function createFeature(
   brepShape: any,
   position?: Vec3
 ): Feature {
+  console.log(`[Store] Creating feature: ${type} "${name}"`);
+  
   // Tessellate the B-rep shape for rendering
   let meshData: MeshResult | null = null;
   try {
+    console.log(`[Store] Tessellating ${type}...`);
     meshData = Kernel.tessellateShape(brepShape, 0.1);
+    console.log(`[Store] ✓ Tessellation complete: ${meshData.faceCount} faces, ${meshData.edgeCount} edges`);
   } catch (e) {
-    console.error(`Failed to tessellate ${type}:`, e);
+    console.error(`[Store] ❌ Failed to tessellate ${type}:`, e);
   }
   
-  return {
+  const feature: Feature = {
     id: `feat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     type,
     name,
@@ -136,6 +140,9 @@ function createFeature(
     brepShape,
     meshData,
   };
+  
+  console.log(`[Store] ✓ Feature created: ${feature.id}`);
+  return feature;
 }
 
 let idCounter = 0;
@@ -202,16 +209,22 @@ export const useCADStore = create<CADState>((set, get) => ({
   // ============ FEATURE CREATION (Real B-rep) ============
 
   addBox: (w, h, d, pos) => {
+    console.log(`[Store] addBox called: ${w}x${h}x${d}`);
     try {
       get()._saveState();
+      console.log(`[Store] Creating box shape...`);
       const shape = Kernel.createBox(w, h, d);
+      console.log(`[Store] Box shape created:`, shape);
       const feature = createFeature('box', `Block ${w}×${h}×${d}`, { width: w, height: h, depth: d }, shape, pos);
+      console.log(`[Store] Adding feature to state...`);
       set(state => ({
         features: [...state.features, feature],
         statusMessage: `Created Block ${w}×${h}×${d} mm (${feature.meshData?.faceCount || 0} faces)`,
       }));
+      console.log(`[Store] ✓ Box added successfully`);
     } catch (e) {
-      set({ statusMessage: `Error creating box: ${e}` });
+      console.error(`[Store] ❌ Error creating box:`, e);
+      set({ statusMessage: `❌ Error creating box: ${e}` });
     }
   },
 
