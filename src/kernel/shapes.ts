@@ -43,22 +43,30 @@ export function tessellateShape(shape: BRepShape, tolerance: number = 0.1): Mesh
     console.log('[Tessellate] Mesh created:', mesh);
     console.log('[Tessellate] Mesh type:', typeof mesh);
     console.log('[Tessellate] Mesh constructor:', mesh?.constructor?.name);
-    console.log('[Tessellate] Mesh keys:', Object.keys(mesh || {}));
     
-    // Log all properties of the mesh object
+    const meshKeys = Object.keys(mesh || {});
+    console.log('[Tessellate] Mesh keys:', meshKeys);
+    
+    // Log each property individually with full details
     if (mesh) {
-      console.log('[Tessellate] Mesh properties:', {
-        hasPositions: 'positions' in mesh,
-        hasNormals: 'normals' in mesh,
-        hasIndices: 'indices' in mesh,
-        hasFaceGroups: 'faceGroups' in mesh,
-        positionsType: mesh.positions?.constructor?.name,
-        positionsLength: mesh.positions?.length,
-        normalsType: mesh.normals?.constructor?.name,
-        normalsLength: mesh.normals?.length,
-        indicesType: mesh.indices?.constructor?.name,
-        indicesLength: mesh.indices?.length,
-      });
+      for (const key of meshKeys) {
+        const value = mesh[key];
+        console.log(`[Tessellate] Mesh.${key}:`, {
+          type: typeof value,
+          constructor: value?.constructor?.name,
+          isArray: Array.isArray(value),
+          length: value?.length,
+          value: value,
+        });
+      }
+      
+      // Check replicad MeshShapeMesh properties
+      console.log('[Tessellate] Checking replicad mesh properties:');
+      console.log('  mesh.vertices:', mesh.vertices?.length, 'elements');
+      console.log('  mesh.triangles:', mesh.triangles?.length, 'elements');
+      console.log('  mesh.normals:', mesh.normals?.length, 'elements');
+      console.log('  mesh.numProp:', mesh.numProp);
+      console.log('  mesh.vertProperties:', mesh.vertProperties?.length, 'elements');
     }
   } catch (e) {
     console.error('[Tessellate] Failed to create mesh:', e);
@@ -118,11 +126,17 @@ export function tessellateShape(shape: BRepShape, tolerance: number = 0.1): Mesh
   
   console.log('[Tessellate] Topology:', { faceCount, edgeCount, vertexCount });
   
+  // replicad mesh() returns: { vertices, triangles, normals, numProp, vertProperties }
+  // We need to convert to Three.js format
+  const facePositions = mesh?.vertices ? new Float32Array(mesh.vertices) : new Float32Array(0);
+  const faceNormals = mesh?.normals ? new Float32Array(mesh.normals) : new Float32Array(0);
+  const faceIndices = mesh?.triangles ? new Uint32Array(mesh.triangles) : new Uint32Array(0);
+  
   const result = {
-    facePositions: mesh?.positions || new Float32Array(0),
-    faceNormals: mesh?.normals || new Float32Array(0),
-    faceIndices: mesh?.indices || new Uint32Array(0),
-    faceGroups: mesh?.faceGroups || [],
+    facePositions,
+    faceNormals,
+    faceIndices,
+    faceGroups: [], // replicad doesn't provide face groups in the same format
     edgePositions,
     edgeIndices,
     boundingBox,
@@ -131,7 +145,7 @@ export function tessellateShape(shape: BRepShape, tolerance: number = 0.1): Mesh
     vertexCount,
   };
   
-  console.log('[Tessellate] Result:', {
+  console.log('[Tessellate] Converted to Three.js format:', {
     facePositions: result.facePositions.length,
     faceNormals: result.faceNormals.length,
     faceIndices: result.faceIndices.length,
